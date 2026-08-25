@@ -180,10 +180,16 @@ export default function App() {
     setLoading(true);
     setResult(null);
     setDetails(false);
+
+    let formattedUrl = url.trim();
+    if (mode === "url" && !formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+      formattedUrl = `https://${formattedUrl}`;
+    }
+
     try {
       const response =
         mode === "url"
-          ? await axios.post<ScanResult>(`${API}/scan/url`, { url })
+          ? await axios.post<ScanResult>(`${API}/scan/url`, { url: formattedUrl })
           : await axios.post<ScanResult>(`${API}/scan/file`, (() => {
               const data = new FormData();
               data.append("file", file as File);
@@ -243,7 +249,7 @@ export default function App() {
       `Alvo: ${target}\n` +
       `Classificação: ${verdict}\n` +
       `Sinais observados:\n` +
-      result.risk_factors.map(r => `- ${r.title}: ${r.description}`).join("\n") +
+      (result.risk_factors || []).map(r => `- ${r.title}: ${r.description}`).join("\n") +
       `\n----------------------------------------\n` +
       `Compartilhe com familiares ou autoridades.`;
     return text;
@@ -411,14 +417,16 @@ export default function App() {
                 {result.summary}
               </p>
 
-              <div className="source-row">
-                <span>fontes consultadas</span>
-                {result.sources_checked.map(source => (
-                  <span className="source" key={source}>
-                    <Check size={13} /> {source}
-                  </span>
-                ))}
-              </div>
+              {result.sources_checked && result.sources_checked.length > 0 && (
+                <div className="source-row">
+                  <span>fontes consultadas</span>
+                  {result.sources_checked.map(source => (
+                    <span className="source" key={source}>
+                      <Check size={13} /> {source}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               <div className="result-actions">
                 <button className="details-toggle" onClick={() => setDetails(!details)} data-testid="toggle-details">
@@ -436,7 +444,7 @@ export default function App() {
               {details && (
                 <div className="details" data-testid="detailed-report">
                   <h3>Sinais encontrados</h3>
-                  {result.risk_factors.map((risk, index) => (
+                  {(result.risk_factors || []).map((risk, index) => (
                     <div className="risk" key={`${risk.title}-${index}`}>
                       <span className={`risk-dot ${risk.severity}`} />
                       <div>
@@ -445,14 +453,16 @@ export default function App() {
                       </div>
                     </div>
                   ))}
-                  <div className="technical">
-                    <span>estrutura</span>
-                    <code>
-                      {result.technical_details.scheme} · {result.technical_details.hostname}
-                    </code>
-                    <span>observação</span>
-                    <code>{result.technical_details.note}</code>
-                  </div>
+                  {result.technical_details && (
+                    <div className="technical">
+                      <span>estrutura</span>
+                      <code>
+                        {result.technical_details.scheme} · {result.technical_details.hostname}
+                      </code>
+                      <span>observação</span>
+                      <code>{result.technical_details.note}</code>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
