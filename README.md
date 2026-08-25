@@ -1,52 +1,53 @@
-# FraudLens
+# 🛡️ FraudLens · Segurança antes do clique
 
-Verificação de segurança antes do clique — analise URLs, prints e vídeos com sinais claros de fraude, mantendo a privacidade primeiro.
+<div align="center">
 
-## Estrutura
+[![Status do Deploy](https://img.shields.io/badge/Deploy-Online-success?style=for-the-badge&logo=render)](https://fraudlens-code.onrender.com)
+[![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-5.0+-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 
-```
-.
-├── src/                # Frontend React + Vite + TypeScript
-├── server/             # Backend FastAPI (Python)
-├── requirements.txt    # Dependências Python
-└── package.json        # Dependências Node
-```
+**Uma ferramenta inteligente e anônima para verificação de links, prints e QR Codes suspeitos antes de você cair em golpes.**
 
-## Backend (FastAPI)
+</div>
 
-```bash
-pip install -r requirements.txt
-export GOOGLE_SAFE_BROWSING_API_KEY="sua-chave"
-export CORS_ORIGINS="http://localhost:5173"
-uvicorn server.main:app --reload --port 8000
-```
+---
 
-## Frontend (React)
+## 🚀 Sobre o Projeto
 
-```bash
-npm install
-npm run dev
-```
+O **FraudLens** foi desenvolvido para ajudar usuários comuns e equipes a analisarem rapidamente a credibilidade de páginas da Web, capturas de tela (prints) ou códigos QR. Com uma interface limpa e focada em privacidade, o sistema cruza dados locais e informações de fontes de segurança para emitir um veredito claro.
 
-O Vite encaminha `/api/*` para `http://localhost:8000` automaticamente.
+### ✨ Principais Recursos
 
-## Segurança
+* **🌐 Análise de URLs:** Verifica a estrutura do link, certificados e sinais de alerta em tempo real.
+* **📸 Leitura de Print / Fotos:** Permite enviar evidências visuais de mensagens suspeitas.
+* **📱 Leitor de QR Code integrado:** Lê códigos diretamente de imagens ou vídeos curtos enviados pelo usuário.
+* **🔒 Privacidade em primeiro lugar:** Uso totalmente anônimo, sem exigência de cadastro e com histórico salvo apenas no armazenamento local do navegador (*localStorage*).
+* **🚨 Geração de Denúncia Anônima:** Cria um resumo formatado do golpe detectado para fácil compartilhamento com familiares ou autoridades.
 
-- API key somente no servidor (nunca no navegador)
-- Rate limiting por IP (30 req/min)
-- Validação de assinatura de arquivos (magic bytes)
-- Limite de upload 25 MB
-- Timeout nas requisições externas (8s Safe Browsing, 15s upload)
-- CORS configurável via `CORS_ORIGINS`
-- Sanitização de entradas (XSS / injection)
-- Proteção contra SSRF (bloqueio de hosts privados)
-- Não armazena dados além do necessário
-- Logs sem API keys, tokens ou dados pessoais
-- Nunca retorna a API key na resposta
-- Rotação da chave se houver suspeita de vazamento
+---
 
-## Recursos
+## 🛠️ Tecnologias Utilizadas
 
-- Leitura de QR: exibe o endereço encontrado e envia ao scanner de URL
-- Histórico privado: salvo apenas no aparelho (localStorage)
-- Denúncia rápida: gera relato sem dados pessoais para compartilhar
+Este repositório contém o **Frontend** da aplicação:
+* **React** com **TypeScript**
+* **Vite** (Build tool rápida e otimizada)
+* **Axios** (Requisições HTTP para a API)
+* **Tailwind CSS / Estilos customizados** (Design responsivo e moderno)
+* **Lucide React** (Ícones)
+* **jsQR** (Decodificação de QR codes via navegador)
+
+---
+
+## 📂 Estrutura do Repositório
+
+```text
+fraudlens-code/
+├── src/
+│   ├── App.tsx          # Componente principal e lógica de interface/API
+│   ├── main.tsx         # Ponto de entrada da aplicação React
+│   ├── index.css        # Estilos globais do sistema
+│   └── vite-env.d.ts    # Tipagens do Vite
+├── public/              # Assets estáticos
+├── package.json         # Dependências e scripts do projeto
+└── README.md            # Documentação do projeto
