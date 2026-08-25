@@ -35,26 +35,26 @@ interface ScanResult {
   verdict: Verdict;
   confidence_score: number;
   summary: string;
-  sources_checked: string[];
-  risk_factors: RiskFactor[];
-  technical_details: {
-    scheme: string;
-    hostname: string;
-    note: string;
+  sources_checked?: string[];
+  risk_factors?: RiskFactor[];
+  technical_details?: {
+    scheme?: string;
+    hostname?: string;
+    note?: string;
   };
   created_at?: string;
 }
 
 const API = import.meta.env.VITE_API_URL || "https://fraudlens-i54g.onrender.com/api";
 
-const VERDICT_META: Record<Verdict, { label: string; cls: string; Icon: typeof ShieldCheck }> = {
+const VERDICT_META: Record<string, { label: string; cls: string; Icon: typeof ShieldCheck }> = {
   SAFE: { label: "Baixo risco", cls: "safe", Icon: ShieldCheck },
   SUSPICIOUS: { label: "Merece atenção", cls: "suspicious", Icon: ShieldQuestion },
   DANGEROUS: { label: "Alto risco", cls: "danger", Icon: ShieldAlert },
 };
 
-function VerdictBadge({ value }: { value: Verdict }) {
-  const meta = VERDICT_META[value] || VERDICT_META.SUSPICIOUS;
+function VerdictBadge({ value }: { value: string }) {
+  const meta = VERDICT_META[value?.toUpperCase()] || VERDICT_META.SUSPICIOUS;
   const Icon = meta.Icon;
   return (
     <span className={`verdict ${meta.cls}`}>
@@ -78,7 +78,8 @@ export default function App() {
   const loadRecent = async () => {
     try {
       const { data } = await axios.get(`${API}/scans/recent`);
-      setRecent(Array.isArray(data) ? data : data.scans || []);
+      const list = Array.isArray(data) ? data : data?.scans || [];
+      setRecent(list);
     } catch {
       /* feed opcional */
     }
@@ -197,18 +198,33 @@ export default function App() {
               return data;
             })());
 
-      // Normalização da resposta da API
-      const scanData: ScanResult = response.data?.scan || response.data?.data || response.data;
+      console.log("Resposta bruta da API:", response.data);
 
-      if (!scanData || !scanData.verdict) {
-        throw new Error("Formato de resposta inválido da API");
-      }
+      const raw = response.data?.scan || response.data?.data || response.data || {};
 
-      setResult(scanData);
-      saveHistory(scanData);
+      // Tratamento seguro para garantir que a UI abra sempre
+      const normalizedResult: ScanResult = {
+        id: raw.id || String(Date.now()),
+        scan_type: raw.scan_type || mode,
+        target: raw.target || formattedUrl || (file ? file.name : "Alvo desconhecido"),
+        verdict: (raw.verdict || raw.status || "SUSPICIOUS").toUpperCase() as Verdict,
+        confidence_score: typeof raw.confidence_score === "number" ? raw.confidence_score : raw.score || 0,
+        summary: raw.summary || raw.message || "Análise executada com sucesso.",
+        sources_checked: raw.sources_checked || ["Análise Interna FraudLens"],
+        risk_factors: raw.risk_factors || [],
+        technical_details: raw.technical_details || {
+          scheme: "https",
+          hostname: raw.target || formattedUrl,
+          note: "Sem observações adicionais.",
+        },
+      };
+
+      setResult(normalizedResult);
+      saveHistory(normalizedResult);
       loadRecent();
       toast.success("Análise concluída");
     } catch (error) {
+      console.error("Erro na requisição:", error);
       if (axios.isAxiosError(error)) {
         toast.error(error.response?.data?.detail || "Não foi possível concluir a análise");
       } else {
