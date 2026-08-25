@@ -190,11 +190,11 @@ export default function App() {
     try {
       let response;
       if (mode === "url") {
-        const params = new URLSearchParams();
-        params.append("url", formattedUrl);
-        response = await axios.post(`${API}/scan/url`, params, {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        });
+        response = await axios.post(
+          `${API}/scan/url`,
+          { url: formattedUrl },
+          { headers: { "Content-Type": "application/json" } }
+        );
       } else {
         const formData = new FormData();
         formData.append("file", file as File);
