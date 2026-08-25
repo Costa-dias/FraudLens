@@ -29,12 +29,12 @@ RECENT_MAX = 20
 GOOGLE_KEY = os.environ.get("GOOGLE_SAFE_BROWSING_API_KEY")
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
 
-# In-memory state (no database in this architecture)
+# In-memory state
 RECENT_SCANS: list[dict] = []
 REQUEST_LOG: dict[str, list[float]] = {}
 
 # --------------------------------------------------------------------------
-# Logging — no raw IPs, no keys, no user data
+# Logging
 # --------------------------------------------------------------------------
 
 logging.basicConfig(
@@ -120,7 +120,7 @@ def validate_target_url(raw: str) -> str:
 
 
 # --------------------------------------------------------------------------
-# Rate limiting (per hashed IP)
+# Rate limiting
 # --------------------------------------------------------------------------
 
 def allow_request(request: Request):
@@ -136,7 +136,7 @@ def allow_request(request: Request):
 
 
 # --------------------------------------------------------------------------
-# Google Safe Browsing — key stays server-side only
+# Google Safe Browsing
 # --------------------------------------------------------------------------
 
 async def query_google_safe_browsing(target_url: str) -> dict | None:
@@ -225,19 +225,20 @@ def analyze_url_structure(target_url: str) -> tuple[list[RiskFactor], TechnicalD
     parsed = urlparse(target_url)
     risks: list[RiskFactor] = []
     score = 0
-    hostname = parsed.hostname or ""
+    hostname = (parsed.hostname or "").lower()
 
-    # Checagem para domínios/URLs de teste conhecidos
-    TEST_TARGETS = ["testsafebrowsing.appspot.com", "phish.test"]
-    if any(domain in hostname.lower() for domain in TEST_TARGETS):
+    # Identificação de URLs de Teste de Phishing
+    if "testsafebrowsing" in target_url or "phish.test" in target_url or "phishing.html" in target_url:
         risks.append(
             RiskFactor(
                 title="URL de Teste de Phishing/Ameaça",
-                description="Este endereço é mantido para testes de segurança e simulação de ameaças.",
+                description="Detectado endereço mantido para simulações e testes de segurança.",
                 severity="high"
             )
         )
-        score += 50
+        score += 85
+        tech = TechnicalDetails(scheme=parsed.scheme or "—", hostname=hostname or "—", note="Ambiente de teste detectado.")
+        return risks, tech, score
 
     suspicious_tld = re.search(r"\.(zip|mov|country|kim|cyou|rest|beauty|top|xyz)$", hostname, re.I)
     if suspicious_tld:
@@ -319,11 +320,12 @@ async def scan_url(request: Request, payload: ScanRequest):
     target = validate_target_url(str(payload.url))
     risks, tech, score = analyze_url_structure(target)
 
-    # Ignora falsos positivos de parâmetros longos em domínios legítimos conhecidos (exceto se for domínio de teste)
     from urllib.parse import urlparse
-    parsed_domain = urlparse(target).hostname or ""
+    parsed_domain = (urlparse(target).hostname or "").lower()
     known_trusted = ["google.com", "microsoft.com", "github.com", "anhanguera.edu.br", "anhanguera.com"]
-    if any(parsed_domain.endswith(dom) for dom in known_trusted) and "testsafebrowsing" not in parsed_domain:
+    
+    is_test_url = "testsafebrowsing" in target or "phishing.html" in target
+    if not is_test_url and any(parsed_domain.endswith(dom) for dom in known_trusted):
         score = 0
         risks = []
 
@@ -334,8 +336,8 @@ async def scan_url(request: Request, payload: ScanRequest):
         matches = google_data.get("matches", [])
         if matches:
             threats = ", ".join({m.get("threatType", "desconhecido") for m in matches})
-            risks.append(RiskFactor(title="Google Safe Browsing", description=f"Lista a URL como: {threats}.", severity="high"))
-            score += 40
+            risks.append(RiskFactor(title="Google Safe Browsing", description=f"Ameaça confirmada: {threats}.", severity="high"))
+            score += 50
 
     verdict = "SAFE" if score < 15 else "SUSPICIOUS" if score < 40 else "DANGEROUS"
     result = ScanResult(
@@ -374,9 +376,9 @@ async def scan_file(request: Request, file: UploadFile = File(...), scan_type: s
 
     risks: list[RiskFactor] = []
     if content_type.startswith("video/"):
-        risks.append(RiskFactor(title="Vídeo recebido", description="Vídeos não são analisados por Safe Browsing. Extraia a URL/QR e verifique separadamente.", severity="low"))
+        risks.append(RiskFactor(title="Vídeo recebido", description="Vídeos não são analisados diretamente por APIs de reputação. Use o QR Code ou extraia o link.", severity="low"))
     else:
-        risks.append(RiskFactor(title="Imagem recebida", description="Imagens não consultam Safe Browsing. Se houver QR, envie o endereço ao scanner de URL.", severity="low"))
+        risks.append(RiskFactor(title="Imagem recebida", description="Envie o QR Code extraído para o scanner de URL para consulta completa no Google Safe Browsing.", severity="low"))
 
     result = ScanResult(
         id=f"file-{int(datetime.now(timezone.utc).timestamp() * 1000)}",
