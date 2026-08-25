@@ -45,7 +45,8 @@ interface ScanResult {
   created_at?: string;
 }
 
-const API = import.meta.env.VITE_API_URL || "https://fraudlens-i54g.onrender.com/api";
+// URL corrigida do backend para evitar duplicações
+const API = "https://fraudlens-i54g.onrender.com/api";
 
 const VERDICT_META: Record<string, { label: string; cls: string; Icon: typeof ShieldCheck }> = {
   SAFE: { label: "BAIXO RISCO", cls: "safe", Icon: ShieldCheck },
