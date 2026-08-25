@@ -290,6 +290,14 @@ async def scan_url(request: Request, payload: ScanRequest):
     target = validate_target_url(str(payload.url))
     risks, tech, score = analyze_url_structure(target)
 
+    # Ignora falsos positivos de parâmetros longos em domínios legítimos conhecidos
+    from urllib.parse import urlparse
+    parsed_domain = urlparse(target).hostname or ""
+    known_trusted = ["google.com", "microsoft.com", "github.com", "anhanguera.edu.br", "anhanguera.com"]
+    if any(parsed_domain.endswith(dom) for dom in known_trusted):
+        score = 0
+        risks = []
+
     sources = ["Análise local"]
     google_data = await query_google_safe_browsing(target)
     if google_data is not None:
@@ -318,7 +326,6 @@ async def scan_url(request: Request, payload: ScanRequest):
     del RECENT_SCANS[RECENT_MAX:]
     safe_log("scan_url", verdict=verdict)
     return result
-
 
 @router.post("/scan/file", response_model=ScanResult)
 async def scan_file(request: Request, file: UploadFile = File(...), scan_type: str = Form("screenshot")):
