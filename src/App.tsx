@@ -78,9 +78,9 @@ export default function App() {
   const loadRecent = async () => {
     try {
       const { data } = await axios.get(`${API}/scans/recent`);
-      setRecent(data);
+      setRecent(Array.isArray(data) ? data : data.scans || []);
     } catch {
-      /* optional anonymous feed */
+      /* feed opcional */
     }
   };
 
@@ -182,22 +182,30 @@ export default function App() {
     setDetails(false);
 
     let formattedUrl = url.trim();
-    if (mode === "url" && !formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+    if (mode === "url" && formattedUrl && !formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
       formattedUrl = `https://${formattedUrl}`;
     }
 
     try {
       const response =
         mode === "url"
-          ? await axios.post<ScanResult>(`${API}/scan/url`, { url: formattedUrl })
-          : await axios.post<ScanResult>(`${API}/scan/file`, (() => {
+          ? await axios.post(`${API}/scan/url`, { url: formattedUrl })
+          : await axios.post(`${API}/scan/file`, (() => {
               const data = new FormData();
               data.append("file", file as File);
               data.append("scan_type", mode);
               return data;
             })());
-      setResult(response.data);
-      saveHistory(response.data);
+
+      // Normalização da resposta da API
+      const scanData: ScanResult = response.data?.scan || response.data?.data || response.data;
+
+      if (!scanData || !scanData.verdict) {
+        throw new Error("Formato de resposta inválido da API");
+      }
+
+      setResult(scanData);
+      saveHistory(scanData);
       loadRecent();
       toast.success("Análise concluída");
     } catch (error) {
@@ -223,7 +231,7 @@ export default function App() {
 
   const shareReport = async () => {
     if (!result) return;
-    const target = result.target.startsWith("http") ? result.target.split(/[?#]/)[0] : result.target;
+    const target = result.target?.startsWith("http") ? result.target.split(/[?#]/)[0] : result.target;
     const verdict = result.verdict === "SAFE" ? "baixo risco aparente" : result.verdict === "SUSPICIOUS" ? "merece atenção" : "alto risco";
     const text = `FraudLens\nResultado: ${verdict}\nAlvo: ${target}\n${result.summary}`;
     try {
@@ -239,7 +247,7 @@ export default function App() {
 
   const buildDenunciation = () => {
     if (!result) return;
-    const target = result.target.startsWith("http") ? result.target.split(/[?#]/)[0] : result.target;
+    const target = result.target?.startsWith("http") ? result.target.split(/[?#]/)[0] : result.target;
     const verdict = result.verdict === "SAFE" ? "baixo risco aparente" : result.verdict === "SUSPICIOUS" ? "merece atenção" : "alto risco";
     const text =
       `RELATO DE SUSPEITA (sem dados pessoais)\n` +
