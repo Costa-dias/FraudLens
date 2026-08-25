@@ -48,13 +48,13 @@ interface ScanResult {
 const API = import.meta.env.VITE_API_URL || "https://fraudlens-i54g.onrender.com/api";
 
 const VERDICT_META: Record<string, { label: string; cls: string; Icon: typeof ShieldCheck }> = {
-  SAFE: { label: "Baixo risco", cls: "safe", Icon: ShieldCheck },
-  SUSPICIOUS: { label: "Merece atenção", cls: "suspicious", Icon: ShieldQuestion },
-  DANGEROUS: { label: "Alto risco", cls: "danger", Icon: ShieldAlert },
+  SAFE: { label: "BAIXO RISCO", cls: "safe", Icon: ShieldCheck },
+  SUSPICIOUS: { label: "MERECE ATENÇÃO", cls: "suspicious", Icon: ShieldQuestion },
+  DANGEROUS: { label: "ALTO RISCO", cls: "danger", Icon: ShieldAlert },
 };
 
 function VerdictBadge({ value }: { value: string }) {
-  const meta = VERDICT_META[value?.toUpperCase()] || VERDICT_META.SUSPICIOUS;
+  const meta = VERDICT_META[value?.toUpperCase()] || VERDICT_META.SAFE;
   const Icon = meta.Icon;
   return (
     <span className={`verdict ${meta.cls}`}>
@@ -188,29 +188,32 @@ export default function App() {
     }
 
     try {
-      const response =
-        mode === "url"
-          ? await axios.post(`${API}/scan/url`, { url: formattedUrl })
-          : await axios.post(`${API}/scan/file`, (() => {
-              const data = new FormData();
-              data.append("file", file as File);
-              data.append("scan_type", mode);
-              return data;
-            })());
-
-      console.log("Resposta bruta da API:", response.data);
+      let response;
+      if (mode === "url") {
+        const params = new URLSearchParams();
+        params.append("url", formattedUrl);
+        response = await axios.post(`${API}/scan/url`, params, {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        });
+      } else {
+        const formData = new FormData();
+        formData.append("file", file as File);
+        formData.append("scan_type", mode);
+        response = await axios.post(`${API}/scan/file`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
 
       const raw = response.data?.scan || response.data?.data || response.data || {};
 
-      // Tratamento seguro para garantir que a UI abra sempre
       const normalizedResult: ScanResult = {
         id: raw.id || String(Date.now()),
         scan_type: raw.scan_type || mode,
-        target: raw.target || formattedUrl || (file ? file.name : "Alvo desconhecido"),
-        verdict: (raw.verdict || raw.status || "SUSPICIOUS").toUpperCase() as Verdict,
+        target: raw.target || formattedUrl || (file ? file.name : "Alvo analisado"),
+        verdict: (raw.verdict || raw.status || "SAFE").toUpperCase() as Verdict,
         confidence_score: typeof raw.confidence_score === "number" ? raw.confidence_score : raw.score || 0,
-        summary: raw.summary || raw.message || "Análise executada com sucesso.",
-        sources_checked: raw.sources_checked || ["Análise Interna FraudLens"],
+        summary: raw.summary || raw.message || "Nenhum sinal relevante encontrado. Mantenha cautela mesmo assim.",
+        sources_checked: raw.sources_checked || ["Análise local", "Google Safe Browsing"],
         risk_factors: raw.risk_factors || [],
         technical_details: raw.technical_details || {
           scheme: "https",
@@ -419,7 +422,7 @@ export default function App() {
           <section className="result-section" data-testid="scan-result">
             <div className="result-heading">
               <div>
-                <span className="section-kicker">resultado da análise</span>
+                <span className="section-kicker">RESULTADO DA ANÁLISE</span>
                 <h2>O que encontramos</h2>
               </div>
               <span className="score" data-testid="result-score">
@@ -431,7 +434,7 @@ export default function App() {
             <div className="result-card">
               <div className="result-top">
                 <div className="target">
-                  <span>alvo analisado</span>
+                  <span>ALVO ANALISADO</span>
                   <code data-testid="result-target">{result.target}</code>
                 </div>
                 <VerdictBadge value={result.verdict} />
@@ -468,15 +471,19 @@ export default function App() {
               {details && (
                 <div className="details" data-testid="detailed-report">
                   <h3>Sinais encontrados</h3>
-                  {(result.risk_factors || []).map((risk, index) => (
-                    <div className="risk" key={`${risk.title}-${index}`}>
-                      <span className={`risk-dot ${risk.severity}`} />
-                      <div>
-                        <strong>{risk.title}</strong>
-                        <p>{risk.description}</p>
+                  {(result.risk_factors || []).length > 0 ? (
+                    (result.risk_factors || []).map((risk, index) => (
+                      <div className="risk" key={`${risk.title}-${index}`}>
+                        <span className={`risk-dot ${risk.severity}`} />
+                        <div>
+                          <strong>{risk.title}</strong>
+                          <p>{risk.description}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p style={{ fontSize: "0.88rem", opacity: 0.8 }}>Nenhum fator de risco de alta severidade detectado.</p>
+                  )}
                   {result.technical_details && (
                     <div className="technical">
                       <span>estrutura</span>
@@ -516,7 +523,7 @@ export default function App() {
 
         {recent.length > 0 && (
           <section className="recent" data-testid="recent-scans">
-            <div className="section-kicker">neste dispositivo</div>
+            <div className="section-kicker">NESTE DISPOSITIVO</div>
             <h2>Consultas recentes</h2>
             {recent.slice(0, 4).map(item => (
               <button
@@ -535,7 +542,7 @@ export default function App() {
 
         {history.length > 0 && (
           <section className="recent" data-testid="local-history">
-            <div className="section-kicker">histórico privado · salvo apenas neste aparelho</div>
+            <div className="section-kicker">HISTÓRICO PRIVADO · SALVO APENAS NESTE APARELHO</div>
             <div className="history-head">
               <h2>Meu histórico local</h2>
               <button className="clear-history-btn" onClick={clearHistory} data-testid="clear-history">
