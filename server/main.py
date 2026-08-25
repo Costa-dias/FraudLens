@@ -119,6 +119,18 @@ def validate_target_url(raw: str) -> str:
     return raw.strip()
 
 
+def redact_target_for_public_feed(url: str) -> str:
+    """Remove query string / fragmento antes de guardar no feed público de
+    'consultas recentes', que é compartilhado entre todos os usuários do site.
+    Evita vazar e-mails, CPFs, tokens etc. que alguém tenha colado na busca."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if not parsed.scheme:
+        return sanitize(url, 150)
+    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
+
 # --------------------------------------------------------------------------
 # Rate limiting
 # --------------------------------------------------------------------------
@@ -152,9 +164,9 @@ async def query_google_safe_browsing(target_url: str) -> dict | None:
         },
         "threatInfo": {
             "threatTypes": [
-                "MALWARE", 
-                "SOCIAL_ENGINEERING", 
-                "UNWANTED_SOFTWARE", 
+                "MALWARE",
+                "SOCIAL_ENGINEERING",
+                "UNWANTED_SOFTWARE",
                 "POTENTIALLY_HARMFUL_APPLICATION"
             ],
             "platformTypes": ["ANY_PLATFORM"],
@@ -219,6 +231,9 @@ class ScanResult(BaseModel):
 # URL analysis
 # --------------------------------------------------------------------------
 
+SHORTENERS = {"bit.ly", "tinyurl.com", "t.co", "goo.gl", "is.gd", "cutt.ly", "rebrand.ly", "shorturl.at"}
+
+
 def analyze_url_structure(target_url: str) -> tuple[list[RiskFactor], TechnicalDetails, int]:
     from urllib.parse import urlparse
 
@@ -268,6 +283,39 @@ def analyze_url_structure(target_url: str) -> tuple[list[RiskFactor], TechnicalD
     if len(parsed.query) > 100:
         risks.append(RiskFactor(title="Parâmetros extensos", description="Queries longas podem redirecionar ou carregar tracking malicioso.", severity="low"))
         score += 5
+
+    harvest_params = re.search(r"[?&](email|cpf|cnpj|senha|password|user|login|token)=", target_url, re.I)
+    if harvest_params:
+        risks.append(RiskFactor(
+            title="Parâmetros de coleta de dados",
+            description="A URL contém parâmetros típicos de páginas que pré-preenchem dados pessoais da vítima (comum em kits de phishing).",
+            severity="high"
+        ))
+        score += 25
+
+    if re.search(r"/d\.php|/login\.php|/verify\.php|/update\.php|/confirm\.php", parsed.path, re.I):
+        risks.append(RiskFactor(
+            title="Script de coleta genérico",
+            description="Caminho característico de kits de phishing prontos (ex: d.php, login.php).",
+            severity="medium"
+        ))
+        score += 15
+
+    if hostname.startswith("xn--") or ".xn--" in hostname:
+        risks.append(RiskFactor(
+            title="Domínio Punycode",
+            description="Domínio usa caracteres internacionais codificados — técnica comum para imitar marcas conhecidas (ex: 'аpple.com' com 'a' cirílico).",
+            severity="high"
+        ))
+        score += 30
+
+    if hostname in SHORTENERS:
+        risks.append(RiskFactor(
+            title="Encurtador de link",
+            description="Encurtadores ocultam o destino real da URL até o clique — use com cautela redobrada.",
+            severity="medium"
+        ))
+        score += 15
 
     tech = TechnicalDetails(scheme=parsed.scheme or "—", hostname=hostname or "—", note="Estrutura analisada localmente.")
     return risks, tech, score
@@ -323,7 +371,7 @@ async def scan_url(request: Request, payload: ScanRequest):
     from urllib.parse import urlparse
     parsed_domain = (urlparse(target).hostname or "").lower()
     known_trusted = ["google.com", "microsoft.com", "github.com", "anhanguera.edu.br", "anhanguera.com"]
-    
+
     is_test_url = "testsafebrowsing" in target or "phishing.html" in target
     if not is_test_url and any(parsed_domain.endswith(dom) for dom in known_trusted):
         score = 0
@@ -353,8 +401,13 @@ async def scan_url(request: Request, payload: ScanRequest):
         risk_factors=risks,
         technical_details=tech,
     )
-    RECENT_SCANS.insert(0, result.model_dump())
+
+    # Guarda no feed público (compartilhado entre usuários) só a versão sem
+    # query string, pra não vazar dados sensíveis que alguém tenha colado.
+    public_result = result.model_copy(update={"target": redact_target_for_public_feed(target)})
+    RECENT_SCANS.insert(0, public_result.model_dump())
     del RECENT_SCANS[RECENT_MAX:]
+
     safe_log("scan_url", verdict=verdict)
     return result
 
