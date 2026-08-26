@@ -524,8 +524,11 @@ export default function App() {
 
         {recent.length > 0 && (
           <section className="recent" data-testid="recent-scans">
-            <div className="section-kicker">NESTE DISPOSITIVO</div>
-            <h2>Consultas recentes</h2>
+            <div className="section-kicker">NA PLATAFORMA</div>
+            <h2>Consultas recentes de outros usuários</h2>
+            <p style={{ fontSize: "0.78rem", opacity: 0.7, marginTop: -8, marginBottom: 8 }}>
+              Domínios verificados por qualquer pessoa, sem parâmetros sensíveis.
+            </p>
             {recent.slice(0, 4).map(item => (
               <button
                 className="recent-item"
