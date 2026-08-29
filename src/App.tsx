@@ -51,7 +51,7 @@ interface PublicStats {
 }
 
 // URL corrigida do backend para evitar duplicações
-const API = "https://fraudlens-i54g.onrender.com/api";
+const API = "https://fraudlens-code.onrender.com/api"
 
 const VERDICT_META: Record<string, { label: string; cls: string; Icon: typeof ShieldCheck }> = {
   SAFE: { label: "BAIXO RISCO", cls: "safe", Icon: ShieldCheck },
