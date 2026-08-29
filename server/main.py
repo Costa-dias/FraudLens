@@ -207,6 +207,9 @@ async def query_virustotal(target_url: str) -> dict | None:
             )
             if resp.status_code == 200:
                 return resp.json()
+            elif resp.status_code == 404:
+                # URL não registrada no banco do VirusTotal (0 detecções prévias)
+                return {"data": {"attributes": {"last_analysis_stats": {"malicious": 0}}}, "status": "not_found"}
             else:
                 safe_log("vt_api_error", status=resp.status_code)
     except (httpx.TimeoutException, httpx.HTTPError) as exc:
@@ -412,10 +415,11 @@ async def scan_url(body: ScanRequest, request: Request):
         sources_checked.append("Google Safe Browsing")
 
     vt_malicious = 0
-    if VT_KEY and vt_res and "data" in vt_res:
+    if VT_KEY and vt_res is not None:
         sources_checked.append("VirusTotal")
-        stats = vt_res["data"].get("attributes", {}).get("last_analysis_stats", {})
-        vt_malicious = stats.get("malicious", 0)
+        if "data" in vt_res:
+            stats = vt_res["data"].get("attributes", {}).get("last_analysis_stats", {})
+            vt_malicious = stats.get("malicious", 0)
 
     risks, tech, score = analyze_url_structure(target_url)
 
