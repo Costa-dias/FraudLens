@@ -408,15 +408,14 @@ async def scan_url(body: ScanRequest, request: Request):
     )
 
     google_hit = bool(google_res and google_res.get("matches"))
-    if GOOGLE_KEY:
+    if GOOGLE_KEY and google_res is not None:
         sources_checked.append("Google Safe Browsing")
 
     vt_malicious = 0
-    if VT_KEY:
+    if VT_KEY and vt_res and "data" in vt_res:
         sources_checked.append("VirusTotal")
-        if vt_res and "data" in vt_res:
-            stats = vt_res["data"].get("attributes", {}).get("last_analysis_stats", {})
-            vt_malicious = stats.get("malicious", 0)
+        stats = vt_res["data"].get("attributes", {}).get("last_analysis_stats", {})
+        vt_malicious = stats.get("malicious", 0)
 
     risks, tech, score = analyze_url_structure(target_url)
 
