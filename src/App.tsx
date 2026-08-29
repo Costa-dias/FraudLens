@@ -45,6 +45,11 @@ interface ScanResult {
   created_at?: string;
 }
 
+interface PublicStats {
+  urls_analyzed_week: number;
+  malicious_pct_month: number;
+}
+
 // URL corrigida do backend para evitar duplicações
 const API = "https://fraudlens-i54g.onrender.com/api";
 
@@ -75,6 +80,7 @@ export default function App() {
   const [details, setDetails] = useState(false);
   const [recent, setRecent] = useState<ScanResult[]>([]);
   const [history, setHistory] = useState<ScanResult[]>([]);
+  const [stats, setStats] = useState<PublicStats | null>(null);
 
   const loadRecent = async () => {
     try {
@@ -83,6 +89,15 @@ export default function App() {
       setRecent(list);
     } catch {
       /* feed opcional */
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const { data } = await axios.get(`${API}/stats/public`);
+      setStats(data);
+    } catch {
+      /* prova social é opcional, se falhar simplesmente não mostra */
     }
   };
 
@@ -115,6 +130,7 @@ export default function App() {
     document.title = "FraudLens · segurança antes do clique";
     loadRecent();
     loadHistory();
+    loadStats();
   }, []);
 
   const readQr = (selected: File): Promise<string | null> =>
@@ -226,6 +242,7 @@ export default function App() {
       setResult(normalizedResult);
       saveHistory(normalizedResult);
       loadRecent();
+      loadStats();
       toast.success("Análise concluída");
     } catch (error) {
       console.error("Erro na requisição:", error);
@@ -333,6 +350,27 @@ export default function App() {
           <p className="lede">
             Cole uma URL, envie um print ou leia um QR Code. Receba sinais claros para decidir com mais segurança.
           </p>
+
+          {stats && (stats.urls_analyzed_week > 0 || stats.malicious_pct_month > 0) && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 16,
+                fontSize: "0.82rem",
+                opacity: 0.75,
+                marginTop: 4,
+                marginBottom: 8,
+              }}
+            >
+              {stats.urls_analyzed_week > 0 && (
+                <span>🔎 {stats.urls_analyzed_week} URLs analisadas essa semana</span>
+              )}
+              {stats.malicious_pct_month > 0 && (
+                <span>🚨 {stats.malicious_pct_month}% de sites maliciosos este mês</span>
+              )}
+            </div>
+          )}
 
           <div className="scanner-panel">
             <div className="mode-tabs">
