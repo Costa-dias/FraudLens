@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import hashlib
 import ipaddress
 import logging
@@ -27,6 +28,7 @@ MAX_URL_LENGTH = 2048
 RECENT_MAX = 20
 
 GOOGLE_KEY = os.environ.get("GOOGLE_SAFE_BROWSING_API_KEY")
+VT_KEY = os.environ.get("VIRUSTOTAL_API_KEY")
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
 
 # In-memory state
@@ -143,7 +145,7 @@ def allow_request(request: Request):
 
 
 # --------------------------------------------------------------------------
-# Google Safe Browsing
+# Threat Intelligence APIs (Google & VirusTotal)
 # --------------------------------------------------------------------------
 
 async def query_google_safe_browsing(target_url: str) -> dict | None:
@@ -185,6 +187,30 @@ async def query_google_safe_browsing(target_url: str) -> dict | None:
                 safe_log("google_api_error", status=resp.status_code)
     except (httpx.TimeoutException, httpx.HTTPError) as exc:
         safe_log("google_timeout", error=type(exc).__name__)
+        return None
+
+    return None
+
+
+async def query_virustotal(target_url: str) -> dict | None:
+    if not VT_KEY:
+        return None
+
+    url_id = base64.urlsafe_b64encode(target_url.encode()).decode().strip("=")
+    headers = {"x-apikey": VT_KEY, "accept": "application/json"}
+
+    try:
+        async with httpx.AsyncClient(timeout=GOOGLE_TIMEOUT) as client:
+            resp = await client.get(
+                f"https://www.virustotal.com/api/v3/urls/{url_id}",
+                headers=headers,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                safe_log("vt_api_error", status=resp.status_code)
+    except (httpx.TimeoutException, httpx.HTTPError) as exc:
+        safe_log("vt_timeout", error=type(exc).__name__)
         return None
 
     return None
@@ -375,13 +401,35 @@ async def scan_url(body: ScanRequest, request: Request):
 
     sources_checked = ["Análise de Padrões Locais"]
 
-    # Consultar Google Safe Browsing
-    google_res = await query_google_safe_browsing(target_url)
+    # Consultar APIs externas em paralelo
+    google_res, vt_res = await asyncio.gather(
+        query_google_safe_browsing(target_url),
+        query_virustotal(target_url),
+    )
+
     google_hit = bool(google_res and google_res.get("matches"))
     if GOOGLE_KEY:
         sources_checked.append("Google Safe Browsing")
 
+    vt_malicious = 0
+    if VT_KEY:
+        sources_checked.append("VirusTotal")
+        if vt_res and "data" in vt_res:
+            stats = vt_res["data"].get("attributes", {}).get("last_analysis_stats", {})
+            vt_malicious = stats.get("malicious", 0)
+
     risks, tech, score = analyze_url_structure(target_url)
+
+    if vt_malicious > 0:
+        score = max(score, 70 + (vt_malicious * 5))
+        risks.insert(
+            0,
+            RiskFactor(
+                title=f"Detectado por {vt_malicious} motores no VirusTotal",
+                description="Serviços globais de antivírus e inteligência sinalizaram este link como malicioso.",
+                severity="high",
+            ),
+        )
 
     if google_hit:
         score = max(score, 90)
