@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import jsQR from "jsqr";
 import toast, { Toaster } from "react-hot-toast";
-import { RadarBanner } from './components/RadarBanner';
 import {
   ArrowRight,
   Check,
@@ -18,6 +17,9 @@ import {
   ShieldQuestion,
   Trash2,
   Upload,
+  AlertTriangle,
+  X,
+  ExternalLink,
 } from "lucide-react";
 
 type Severity = "low" | "medium" | "high";
@@ -68,6 +70,52 @@ function VerdictBadge({ value }: { value: string }) {
     <span className={`verdict ${meta.cls}`}>
       <Icon size={14} /> {meta.label}
     </span>
+  );
+}
+
+// Componente do Banner Flutuante integrado com o tema do Radar de Golpes
+function RadarBanner() {
+  const [visible, setVisible] = useState(true);
+
+  if (!visible) return null;
+
+  return (
+    <div style={styles.container}>
+      {/* Tarja vermelha superior idêntica ao estilo do site do Radar */}
+      <div style={styles.topBarStripe} />
+      
+      <div style={styles.content}>
+        <div style={styles.iconBox}>
+          <AlertTriangle size={19} color="#ff3b30" />
+        </div>
+        
+        <div style={styles.textArea}>
+          <div style={styles.titleRow}>
+            <span style={styles.badge}>RADAR DE GOLPES</span>
+            <span style={styles.liveDot} />
+          </div>
+          <p style={styles.text}>
+            Descubra os golpes em alta no Brasil e proteja-se agora.
+          </p>
+          <a
+            href="https://radar-de-golpes-hub.xadoondias.workers.dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={styles.link}
+          >
+            Acessar painel completo <ExternalLink size={12} />
+          </a>
+        </div>
+
+        <button
+          onClick={() => setVisible(false)}
+          style={styles.closeBtn}
+          title="Fechar aviso"
+        >
+          <X size={15} />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -615,8 +663,100 @@ export default function App() {
         <span>Uma análise limpa não é garantia absoluta. Na dúvida, não clique.</span>
       </footer>
 
-      {/* Balão flutuante integrado */}
+      {/* Alerta flutuante com o mesmo design system do Radar */}
       <RadarBanner />
     </div>
   );
 }
+
+const styles = {
+  container: {
+    position: "fixed" as const,
+    bottom: "24px",
+    right: "24px",
+    zIndex: 9999,
+    width: "350px",
+    borderRadius: "14px",
+    background: "#0c0d12",
+    border: "1px solid rgba(255, 59, 48, 0.4)",
+    boxShadow: "0 16px 48px rgba(0, 0, 0, 0.8), 0 0 25px rgba(255, 59, 48, 0.18)",
+    overflow: "hidden",
+  },
+  topBarStripe: {
+    height: "4px",
+    width: "100%",
+    background: "linear-gradient(90deg, #ff3b30, #ff453a, #ff6961)",
+    boxShadow: "0 0 10px #ff3b30",
+  },
+  content: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+    padding: "14px 16px 16px 16px",
+    position: "relative" as const,
+  },
+  iconBox: {
+    background: "rgba(255, 59, 48, 0.12)",
+    border: "1px solid rgba(255, 59, 48, 0.3)",
+    padding: "8px",
+    borderRadius: "10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  textArea: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "4px",
+  },
+  titleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  badge: {
+    fontSize: "0.65rem",
+    fontWeight: 800,
+    letterSpacing: "0.1em",
+    color: "#ff453a",
+    background: "rgba(255, 69, 58, 0.15)",
+    padding: "2px 6px",
+    borderRadius: "4px",
+  },
+  liveDot: {
+    width: "6px",
+    height: "6px",
+    backgroundColor: "#30d158",
+    borderRadius: "50%",
+    boxShadow: "0 0 8px #30d158",
+  },
+  text: {
+    fontSize: "0.83rem",
+    color: "#e8edf7",
+    margin: 0,
+    lineHeight: "1.35",
+  },
+  link: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "5px",
+    fontSize: "0.78rem",
+    fontWeight: 600,
+    color: "#ff6961",
+    textDecoration: "none",
+    marginTop: "4px",
+  },
+  closeBtn: {
+    background: "transparent",
+    border: "none",
+    color: "#8e8e93",
+    cursor: "pointer",
+    padding: "2px",
+    borderRadius: "6px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+};
