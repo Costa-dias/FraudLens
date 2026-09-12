@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import jsQR from "jsqr";
 import toast, { Toaster } from "react-hot-toast";
+import { RadarBanner } from './components/RadarBanner';
 import {
   ArrowRight,
   Check,
@@ -613,6 +614,9 @@ export default function App() {
         <span>© 2026 FraudLens — Created by Costa-Dias</span>
         <span>Uma análise limpa não é garantia absoluta. Na dúvida, não clique.</span>
       </footer>
+
+      {/* Balão flutuante integrado */}
+      <RadarBanner />
     </div>
   );
 }
