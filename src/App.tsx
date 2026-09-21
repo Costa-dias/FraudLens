@@ -48,23 +48,22 @@ interface ScanResult {
   created_at?: string;
 }
 
-interface PublicStats {
-  urls_analyzed_week: number;
-  malicious_pct_month: number;
-}
-
 // Configuração dinâmica da API apontando para o backend Python (fraudlens-i54g)
 const BASE_URL = import.meta.env.VITE_API_URL || "https://fraudlens-i54g.onrender.com";
 const API = BASE_URL.endsWith("/api") ? BASE_URL : `${BASE_URL.replace(/\/$/, "")}/api`;
+
+// Prints e vídeos são lidos no próprio navegador (QR Code). Limite para não travar o aparelho.
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 const VERDICT_META: Record<string, { label: string; cls: string; Icon: typeof ShieldCheck }> = {
   SAFE: { label: "BAIXO RISCO", cls: "safe", Icon: ShieldCheck },
   SUSPICIOUS: { label: "MERECE ATENÇÃO", cls: "suspicious", Icon: ShieldQuestion },
   DANGEROUS: { label: "ALTO RISCO", cls: "danger", Icon: ShieldAlert },
+  UNKNOWN: { label: "SEM RESULTADO", cls: "unknown", Icon: ShieldQuestion },
 };
 
 function VerdictBadge({ value }: { value: string }) {
-  const meta = VERDICT_META[value?.toUpperCase()] || VERDICT_META.SAFE;
+  const meta = VERDICT_META[value?.toUpperCase()] || VERDICT_META.UNKNOWN;
   const Icon = meta.Icon;
   return (
     <span className={`verdict ${meta.cls}`}>
@@ -128,28 +127,7 @@ export default function App() {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [details, setDetails] = useState(false);
-  const [recent, setRecent] = useState<ScanResult[]>([]);
   const [history, setHistory] = useState<ScanResult[]>([]);
-  const [stats, setStats] = useState<PublicStats | null>(null);
-
-  const loadRecent = async () => {
-    try {
-      const { data } = await axios.get(`${API}/scans/recent`);
-      const list = Array.isArray(data) ? data : data?.scans || [];
-      setRecent(list);
-    } catch {
-      /* feed opcional */
-    }
-  };
-
-  const loadStats = async () => {
-    try {
-      const { data } = await axios.get(`${API}/stats/public`);
-      setStats(data);
-    } catch {
-      /* prova social é opcional */
-    }
-  };
 
   const loadHistory = () => {
     try {
@@ -178,9 +156,7 @@ export default function App() {
 
   useEffect(() => {
     document.title = "FraudLens · segurança antes do clique";
-    loadRecent();
     loadHistory();
-    loadStats();
   }, []);
 
   const readQr = (selected: File): Promise<string | null> =>
@@ -231,6 +207,10 @@ export default function App() {
 
   const handleFile = async (selected?: File) => {
     if (!selected) return;
+    if (selected.size > MAX_FILE_BYTES) {
+      toast.error("Arquivo grande demais (máximo 25 MB).");
+      return;
+    }
     setFile(selected);
     setQrMessage(null);
     setQrValue(null);
@@ -239,60 +219,53 @@ export default function App() {
       setQrValue(decoded);
       setQrMessage(`QR encontrado: ${decoded}`);
     } else {
-      setQrMessage("Nenhum QR legível no primeiro quadro.");
+      setQrMessage("Nenhum QR Code legível. Prints e vídeos não são analisados automaticamente: copie o link que aparece na mensagem e cole na aba «Link / URL».");
     }
   };
 
   const scan = async (event: React.FormEvent) => {
     event.preventDefault();
+    // Prints e vídeos são lidos só no navegador (QR Code) e nunca são enviados ao servidor.
+    if (mode !== "url") return;
+
     setLoading(true);
     setResult(null);
     setDetails(false);
 
     let formattedUrl = url.trim();
-    if (mode === "url" && formattedUrl && !formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+    if (formattedUrl && !formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
       formattedUrl = `https://${formattedUrl}`;
     }
 
     try {
-      let response;
-      if (mode === "url") {
-        response = await axios.post(
-          `${API}/scan/url`,
-          { url: formattedUrl },
-          { headers: { "Content-Type": "application/json" } }
-        );
-      } else {
-        const formData = new FormData();
-        formData.append("file", file as File);
-        formData.append("scan_type", mode);
-        response = await axios.post(`${API}/scan/file`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-      }
+      const response = await axios.post(
+        `${API}/scan/url`,
+        { url: formattedUrl },
+        { headers: { "Content-Type": "application/json" } }
+      );
 
-      const raw = response.data?.scan || response.data?.data || response.data || {};
+      const raw = response.data?.scan;
+
+      // Sem veredito válido, não inventamos resultado: um erro é melhor que um "baixo risco" falso.
+      const verdict = String(raw?.verdict ?? "").toUpperCase();
+      if (!raw || !["SAFE", "SUSPICIOUS", "DANGEROUS"].includes(verdict)) {
+        throw new Error("Resposta inesperada do servidor");
+      }
 
       const normalizedResult: ScanResult = {
         id: raw.id || String(Date.now()),
-        scan_type: raw.scan_type || mode,
-        target: raw.target || formattedUrl || (file ? file.name : "Alvo analisado"),
-        verdict: (raw.verdict || raw.status || "SAFE").toUpperCase() as Verdict,
-        confidence_score: typeof raw.confidence_score === "number" ? raw.confidence_score : raw.score || 0,
-        summary: raw.summary || raw.message || "Nenhum sinal relevante encontrado. Mantenha cautela mesmo assim.",
-        sources_checked: raw.sources_checked || ["Análise local", "Google Safe Browsing"],
+        scan_type: raw.scan_type || "url",
+        target: raw.target || formattedUrl,
+        verdict: verdict as Verdict,
+        confidence_score: typeof raw.confidence_score === "number" ? raw.confidence_score : 0,
+        summary: raw.summary || "Resumo indisponível.",
+        sources_checked: raw.sources_checked || [], // só o que o servidor de fato consultou
         risk_factors: raw.risk_factors || [],
-        technical_details: raw.technical_details || {
-          scheme: "https",
-          hostname: raw.target || formattedUrl,
-          note: "Sem observações adicionais.",
-        },
+        technical_details: raw.technical_details,
       };
 
       setResult(normalizedResult);
       saveHistory(normalizedResult);
-      loadRecent();
-      loadStats();
       toast.success("Análise concluída");
     } catch (error) {
       console.error("Erro na requisição:", error);
@@ -371,7 +344,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Toaster position="top-right" richColors toastOptions={{ style: { background: "#111a2e", color: "#e8edf7", border: "1px solid #243250" } }} />
+      <Toaster position="top-right" toastOptions={{ style: { background: "#111a2e", color: "#e8edf7", border: "1px solid #243250" } }} />
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark">
@@ -401,27 +374,6 @@ export default function App() {
             Cole uma URL, envie um print ou leia um QR Code. Receba sinais claros para decidir com mais segurança.
           </p>
 
-          {stats && (stats.urls_analyzed_week > 0 || stats.malicious_pct_month > 0) && (
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 16,
-                fontSize: "0.82rem",
-                opacity: 0.75,
-                marginTop: 4,
-                marginBottom: 8,
-              }}
-            >
-              {stats.urls_analyzed_week > 0 && (
-                <span>🔎 {stats.urls_analyzed_week} URLs analisadas essa semana</span>
-              )}
-              {stats.malicious_pct_month > 0 && (
-                <span>🚨 {stats.malicious_pct_month}% de sites maliciosos este mês</span>
-              )}
-            </div>
-          )}
-
           <div className="scanner-panel">
             <div className="mode-tabs">
               {([["url", Globe, "Link / URL"], ["screenshot", FileImage, "Print / foto"], ["video", FileVideo, "Vídeo / QR"]] as const).map(
@@ -448,7 +400,7 @@ export default function App() {
                   <label className="dropzone">
                     <Upload size={25} />
                     <strong>{file ? file.name : `Escolha ${mode === "video" ? "um vídeo curto" : "um print ou foto"}`}</strong>
-                    <span>Arraste ou toque para selecionar · até 25 MB</span>
+                    <span>Arraste ou toque para selecionar · o arquivo não sai do seu aparelho · até 25 MB</span>
                     <input
                       type="file"
                       accept={mode === "video" ? "video/*" : "image/*"}
@@ -458,7 +410,7 @@ export default function App() {
                   </label>
                   {qrMessage && (
                     <div className="qr-message" data-testid="qr-result">
-                      <Check size={15} /> {qrMessage}
+                      {qrValue ? <Check size={15} /> : <AlertTriangle size={15} />} {qrMessage}
                       {qrValue && (
                         <button
                           type="button"
@@ -486,16 +438,10 @@ export default function App() {
                 </>
               )}
 
-              {mode !== "url" && (
-                <button className="primary full" disabled={loading || !file} data-testid="scan-file-button">
-                  {loading ? "Analisando…" : "Analisar evidência"}
-                  <ArrowRight size={18} />
-                </button>
-              )}
             </form>
 
             <div className="panel-note">
-              <Lock size={13} /> Não salvamos seus arquivos. Para resultados completos, cole a URL encontrada.
+              <Lock size={13} /> Prints e vídeos são lidos só no seu aparelho (nada é enviado): procuramos um QR Code. Para links escritos na imagem, cole a URL na aba «Link / URL».
             </div>
           </div>
         </section>
@@ -503,7 +449,7 @@ export default function App() {
         {loading && (
           <div className="loading-state" data-testid="scan-loading">
             <RefreshCw className="spin" size={22} />
-            <span>Conferindo sinais locais e Google Safe Browsing…</span>
+            <span>Conferindo sinais locais e bases de ameaças…</span>
           </div>
         )}
 
@@ -609,28 +555,6 @@ export default function App() {
             <span>Consulta externa quando disponível.</span>
           </div>
         </section>
-
-        {recent.length > 0 && (
-          <section className="recent" data-testid="recent-scans">
-            <div className="section-kicker">NA PLATAFORMA</div>
-            <h2>Consultas recentes de outros usuários</h2>
-            <p style={{ fontSize: "0.78rem", opacity: 0.7, marginTop: -8, marginBottom: 8 }}>
-              Domínios verificados por qualquer pessoa, sem parâmetros sensíveis.
-            </p>
-            {recent.slice(0, 4).map(item => (
-              <button
-                className="recent-item"
-                key={item.id}
-                onClick={() => setResult(item)}
-                data-testid={`recent-scan-${item.id}`}
-              >
-                <span className={`mini-dot ${item.verdict === "SAFE" ? "safe" : item.verdict === "SUSPICIOUS" ? "warn" : "danger"}`} />
-                <code>{item.target}</code>
-                <ArrowRight size={15} />
-              </button>
-            ))}
-          </section>
-        )}
 
         {history.length > 0 && (
           <section className="recent" data-testid="local-history">
