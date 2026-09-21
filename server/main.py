@@ -6,13 +6,13 @@ import logging
 import os
 import re
 import socket
+import time
 from datetime import datetime, timezone
 from typing import Literal
 
 import httpx
-from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 # --------------------------------------------------------------------------
@@ -21,18 +21,19 @@ from pydantic import BaseModel
 
 RATE_LIMIT = 30
 RATE_WINDOW = 60
-MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+RATE_MAX_TRACKED_IPS = 5000  # acima disso, limpamos da memória os IPs antigos
 GOOGLE_TIMEOUT = 6.0
-UPLOAD_TIMEOUT = 15.0
 MAX_URL_LENGTH = 2048
-RECENT_MAX = 20
 
 GOOGLE_KEY = os.environ.get("GOOGLE_SAFE_BROWSING_API_KEY")
 VT_KEY = os.environ.get("VIRUSTOTAL_API_KEY")
-CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*")
+
+# Sites autorizados a chamar esta API pelo navegador (separe por vírgula).
+# Para liberar outro domínio, defina CORS_ORIGINS no Render.
+DEFAULT_CORS_ORIGINS = "https://fraudlens-code.onrender.com,http://localhost:5173"
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", DEFAULT_CORS_ORIGINS)
 
 # In-memory state
-RECENT_SCANS: list[dict] = []
 REQUEST_LOG: dict[str, list[float]] = {}
 
 # --------------------------------------------------------------------------
@@ -45,6 +46,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger("fraudlens")
 logger.propagate = False
+
+# O httpx registra (nível INFO) cada requisição com a URL COMPLETA. Sem isto, o log do Render
+# guardaria a chave do Google (…?key=AIza…) e o endereço de cada link verificado
+# (o VirusTotal recebe a URL em base64 no caminho da chamada). Deixamos só avisos e erros.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def ip_hash(ip: str) -> str:
@@ -62,23 +69,8 @@ def safe_log(event: str, **kwargs):
 
 BLOCKED_HOSTS = {"localhost", "0.0.0.0", "metadata.google.internal", "metadata"}
 ALLOWED_SCHEMES = {"http", "https"}
-ALLOWED_MIME_PREFIXES = {
-    b"\xff\xd8\xff": "image/jpeg",
-    b"\x89PNG\r\n\x1a\n": "image/png",
-    b"RIFF": "image/webp",
-    b"\x1a\x45\xdf\xa3": "video/webm",
-}
-ALLOWED_SCAN_TYPES = {"screenshot", "video"}
 
-CONTROL_RE = re.compile(r"[\x00-\x1f\x7f<>\"'{}\\]")
 URL_DANGEROUS_RE = re.compile(r"[<>\s\"'\\]")
-
-
-def sanitize(text: str, max_len: int = 500) -> str:
-    if not text:
-        return ""
-    cleaned = CONTROL_RE.sub("", text)
-    return cleaned[:max_len]
 
 
 def is_private_or_blocked(host: str) -> bool:
@@ -119,18 +111,16 @@ def validate_target_url(raw: str) -> str:
     return raw.strip()
 
 
-def redact_target_for_public_feed(url: str) -> str:
-    from urllib.parse import urlparse
-
-    parsed = urlparse(url)
-    if not parsed.scheme:
-        return sanitize(url, 150)
-    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-
-
 # --------------------------------------------------------------------------
 # Rate limiting
 # --------------------------------------------------------------------------
+
+def prune_request_log(now: float) -> None:
+    """Remove da memória os IPs que não fazem consultas dentro da janela."""
+    stale = [key for key, stamps in REQUEST_LOG.items() if not stamps or now - stamps[-1] >= RATE_WINDOW]
+    for key in stale:
+        REQUEST_LOG.pop(key, None)
+
 
 def allow_request(request: Request):
     now = datetime.now(timezone.utc).timestamp()
@@ -142,6 +132,8 @@ def allow_request(request: Request):
         raise HTTPException(429, "Muitas consultas. Aguarde um minuto e tente novamente.")
     recent.append(now)
     REQUEST_LOG[bucket_key] = recent
+    if len(REQUEST_LOG) > RATE_MAX_TRACKED_IPS:
+        prune_request_log(now)
 
 
 # --------------------------------------------------------------------------
@@ -383,16 +375,30 @@ def calculate_verdict(score: int, google_hit: bool) -> tuple[Literal["SAFE", "SU
 # API Initialization & Routes
 # --------------------------------------------------------------------------
 
-app = FastAPI(title="FraudLens API", version="1.0.0")
+app = FastAPI(title="FraudLens API", version="1.1.0")
 
-origins = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if "*" in origins else origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[o.strip() for o in CORS_ORIGINS.split(",") if o.strip()],
+    allow_credentials=False,  # a API não usa cookies nem login, então não precisa de credenciais
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    if request.url.path.startswith("/api/"):
+        # Respostas da API são só JSON: nada precisa ser carregado nem embutido em outra página.
+        response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
 
 api_router = APIRouter(prefix="/api")
 
@@ -400,7 +406,8 @@ api_router = APIRouter(prefix="/api")
 @api_router.post("/scan/url", response_model=dict)
 async def scan_url(body: ScanRequest, request: Request):
     allow_request(request)
-    target_url = validate_target_url(body.url)
+    # validate_target_url faz consulta de DNS (bloqueante): rodamos em outra thread para não travar o servidor.
+    target_url = await asyncio.to_thread(validate_target_url, body.url)
 
     sources_checked = ["Análise de Padrões Locais"]
 
@@ -416,9 +423,12 @@ async def scan_url(body: ScanRequest, request: Request):
 
     vt_malicious = 0
     if VT_KEY and vt_res is not None:
-        sources_checked.append("VirusTotal")
-        if "data" in vt_res:
-            stats = vt_res["data"].get("attributes", {}).get("last_analysis_stats", {})
+        if vt_res.get("status") == "not_found":
+            # O VirusTotal respondeu, mas nunca analisou esta URL: não dá para dizer que "consultou e está limpo".
+            sources_checked.append("VirusTotal (sem registro desta URL)")
+        else:
+            sources_checked.append("VirusTotal")
+            stats = vt_res.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
             vt_malicious = stats.get("malicious", 0)
 
     risks, tech, score = analyze_url_structure(target_url)
@@ -461,89 +471,7 @@ async def scan_url(body: ScanRequest, request: Request):
         technical_details=tech,
     )
 
-    # Registrar no feed recente público (com dados ocultados)
-    public_target = redact_target_for_public_feed(target_url)
-    RECENT_SCANS.insert(
-        0,
-        {
-            "id": scan_id,
-            "scan_type": "url",
-            "target": public_target,
-            "verdict": verdict,
-            "confidence_score": score,
-            "summary": summary,
-            "sources_checked": sources_checked,
-            "risk_factors": [r.model_dump() for r in risks],
-            "technical_details": tech.model_dump(),
-        },
-    )
-
-    if len(RECENT_SCANS) > RECENT_MAX:
-        RECENT_SCANS.pop()
-
     return {"scan": result.model_dump()}
-
-
-@api_router.post("/scan/file", response_model=dict)
-async def scan_file(
-    request: Request,
-    file: UploadFile = File(...),
-    scan_type: str = Form("screenshot"),
-):
-    allow_request(request)
-
-    if scan_type not in ALLOWED_SCAN_TYPES:
-        raise HTTPException(400, "Tipo de verificação inválido.")
-
-    contents = await file.read(1024 * 1024 * 26)  # limite de segurança na leitura
-    if len(contents) > MAX_UPLOAD_BYTES:
-        raise HTTPException(400, "O arquivo excede o limite máximo de 25MB.")
-
-    file_name = sanitize(file.filename or "evidencia", 80)
-    scan_id = hashlib.md5(f"{file_name}{datetime.now().timestamp()}".encode()).hexdigest()[:10]
-
-    risks = [
-        RiskFactor(
-            title="Análise de Evidência de Mídia",
-            description="Arquivo recebido e processado. Nenhuma ameaça de execução identificada no cabeçalho.",
-            severity="low",
-        )
-    ]
-
-    result = ScanResult(
-        id=scan_id,
-        scan_type=scan_type,
-        target=file_name,
-        verdict="SAFE",
-        confidence_score=5,
-        summary="Arquivo analisado com sucesso. Para verificação profunda de links visíveis, extraia e insira a URL no scanner.",
-        sources_checked=["Análise de Mídia Local"],
-        risk_factors=risks,
-        technical_details=TechnicalDetails(
-            scheme="file",
-            hostname="local_upload",
-            note=f"Tamanho: {len(contents)} bytes",
-        ),
-    )
-
-    return {"scan": result.model_dump()}
-
-
-@api_router.get("/scans/recent")
-async def get_recent_scans():
-    return {"scans": RECENT_SCANS}
-
-
-@api_router.get("/stats/public")
-async def get_public_stats():
-    malicious_count = sum(1 for s in RECENT_SCANS if s["verdict"] in ["SUSPICIOUS", "DANGEROUS"])
-    total = len(RECENT_SCANS)
-    pct = round((malicious_count / total * 100), 1) if total > 0 else 12.5
-
-    return {
-        "urls_analyzed_week": max(total + 18, 42),
-        "malicious_pct_month": pct,
-    }
 
 
 app.include_router(api_router)
