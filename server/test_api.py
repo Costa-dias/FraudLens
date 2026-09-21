@@ -1,67 +1,54 @@
-"""FraudLens internal test suite.
+"""Testes do backend do FraudLens.
 
-Run with:
-    PYTHONPATH=.:server:.venv/lib/pythonX.Y/site-packages python -m pytest server/test_api.py -v
+Como rodar (na RAIZ do repositório):
+    pip install -r requirements.txt pytest
+    python -m pytest server/test_api.py -v
 
-Covers the three input modes:
-  1. URL scan
-  2. Image (screenshot) upload
-  3. QR Code image upload
+Nenhum teste usa a internet: as chaves externas ficam desligadas e o DNS é simulado.
 """
 
-import io
+import logging
 import sys
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, "/home/appuser/.local/lib/python3.13/site-packages")
 sys.path.insert(0, ".")
+from server import main  # noqa: E402
 
-from server.main import app  # noqa: E402
-
-client = TestClient(app)
-
-
-def _make_jpeg() -> bytes:
-    from PIL import Image
-
-    img = Image.new("RGB", (120, 120), color=(60, 120, 200))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG")
-    return buf.getvalue()
-
-
-def _make_png_qr(url: str = "https://example.com/qr-test") -> bytes:
-    import qrcode
-    from PIL import Image
-
-    qr = qrcode.QRCode(version=1, box_size=10, border=2)
-    qr.add_data(url)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue()
+client = TestClient(main.app)
 
 
 # ---------------------------------------------------------------------------
-# 1. URL scan
+# Preparação: cada teste começa do zero
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def ambiente_isolado(monkeypatch):
+    """Sem chaves externas e sem DNS real."""
+    monkeypatch.setattr(main, "GOOGLE_KEY", None)
+    monkeypatch.setattr(main, "VT_KEY", None)
+    monkeypatch.setattr(main.socket, "gethostbyname", lambda host: "93.184.216.34")
+    main.REQUEST_LOG.clear()
+
+
+# ---------------------------------------------------------------------------
+# 1. Verificação de URL
 # ---------------------------------------------------------------------------
 
 def test_url_scan_valid():
     resp = client.post("/api/scan/url", json={"url": "https://example.com"})
     assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert data["scan_type"] == "url"
-    assert data["verdict"] in ("SAFE", "SUSPICIOUS", "DANGEROUS")
-    assert "target" in data
-    assert "summary" in data
-    assert "sources_checked" in data
-    assert isinstance(data["risk_factors"], list)
+    scan = resp.json()["scan"]
+    assert scan["scan_type"] == "url"
+    assert scan["verdict"] in ("SAFE", "SUSPICIOUS", "DANGEROUS")
+    assert scan["target"] == "https://example.com"
+    assert "summary" in scan
+    assert isinstance(scan["sources_checked"], list)
+    assert isinstance(scan["risk_factors"], list)
 
 
-def test_url_scan_ssrf_blocked():
+def test_url_scan_private_host_blocked():
     resp = client.post("/api/scan/url", json={"url": "http://127.0.0.1"})
     assert resp.status_code == 400
     assert "não permitido" in resp.json()["detail"].lower()
@@ -69,111 +56,126 @@ def test_url_scan_ssrf_blocked():
 
 def test_url_scan_bad_scheme():
     resp = client.post("/api/scan/url", json={"url": "ftp://x.com"})
-    assert resp.status_code == 422
+    assert resp.status_code == 400
+
+
+def test_virustotal_not_found_is_not_listed_as_a_clean_check(monkeypatch):
+    """VirusTotal que nunca viu a URL não pode aparecer como 'consultado e limpo'."""
+    async def vt_sem_registro(_url):
+        return {"data": {"attributes": {"last_analysis_stats": {"malicious": 0}}}, "status": "not_found"}
+
+    monkeypatch.setattr(main, "VT_KEY", "chave-de-teste")
+    monkeypatch.setattr(main, "query_virustotal", vt_sem_registro)
+    scan = client.post("/api/scan/url", json={"url": "https://example.com"}).json()["scan"]
+    assert "VirusTotal" not in scan["sources_checked"]
+    assert "VirusTotal (sem registro desta URL)" in scan["sources_checked"]
+
+
+def test_virustotal_detection_raises_the_verdict(monkeypatch):
+    async def vt_com_deteccao(_url):
+        return {"data": {"attributes": {"last_analysis_stats": {"malicious": 4}}}}
+
+    monkeypatch.setattr(main, "VT_KEY", "chave-de-teste")
+    monkeypatch.setattr(main, "query_virustotal", vt_com_deteccao)
+    scan = client.post("/api/scan/url", json={"url": "https://example.com"}).json()["scan"]
+    assert scan["verdict"] == "DANGEROUS"
+    assert "VirusTotal" in scan["sources_checked"]
 
 
 # ---------------------------------------------------------------------------
-# 2. Image / screenshot upload
+# 2. Endpoints que foram REMOVIDOS de propósito
 # ---------------------------------------------------------------------------
 
-def test_image_upload_jpeg():
-    img_bytes = _make_jpeg()
+def test_file_upload_endpoint_is_gone():
+    """Prints e vídeos agora são lidos só no navegador; o servidor não recebe mais arquivos."""
     resp = client.post(
         "/api/scan/file",
-        files={"file": ("evidence.jpg", img_bytes, "image/jpeg")},
+        files={"file": ("golpe.png", b"qualquer coisa", "image/png")},
         data={"scan_type": "screenshot"},
     )
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert data["scan_type"] == "screenshot"
-    assert data["verdict"] in ("SAFE", "SUSPICIOUS", "DANGEROUS")
-    assert "sources_checked" in data
-    assert isinstance(data["risk_factors"], list)
+    assert resp.status_code == 404
 
 
-def test_image_upload_png():
-    from PIL import Image
-
-    img = Image.new("RGB", (80, 80), color=(200, 60, 60))
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    resp = client.post(
-        "/api/scan/file",
-        files={"file": ("evidence.png", buf.getvalue(), "image/png")},
-        data={"scan_type": "screenshot"},
-    )
-    assert resp.status_code == 200, resp.text
+def test_public_feed_endpoint_is_gone():
+    assert client.get("/api/scans/recent").status_code == 404
 
 
-def test_image_upload_invalid_mime_rejected():
-    img_bytes = _make_jpeg()
-    resp = client.post(
-        "/api/scan/file",
-        files={"file": ("evidence.jpg", img_bytes, "application/pdf")},
-        data={"scan_type": "screenshot"},
-    )
-    assert resp.status_code == 415
-
-
-def test_file_upload_bad_magic_bytes():
-    resp = client.post(
-        "/api/scan/file",
-        files={"file": ("fake.jpg", b"\x00" * 100, "image/jpeg")},
-        data={"scan_type": "screenshot"},
-    )
-    assert resp.status_code == 415
+def test_public_stats_endpoint_is_gone():
+    """O contador foi removido de vez: sem banco de dados, sem número (nem real, nem falso)."""
+    assert client.get("/api/stats/public").status_code == 404
 
 
 # ---------------------------------------------------------------------------
-# 3. QR Code image upload
+# 3. Cabeçalhos de segurança e CORS
 # ---------------------------------------------------------------------------
 
-def test_qr_code_image_upload():
-    qr_bytes = _make_png_qr("https://example.com/qr-test")
-    resp = client.post(
-        "/api/scan/file",
-        files={"file": ("qr.png", qr_bytes, "image/png")},
-        data={"scan_type": "screenshot"},
-    )
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert data["scan_type"] == "screenshot"
-    assert data["verdict"] in ("SAFE", "SUSPICIOUS", "DANGEROUS")
+def test_security_headers_on_api_responses():
+    resp = client.get("/")
+    assert resp.headers["x-content-type-options"] == "nosniff"
+    assert resp.headers["x-frame-options"] == "DENY"
+    assert resp.headers["referrer-policy"] == "no-referrer"
+    assert "max-age" in resp.headers["strict-transport-security"]
 
 
-# ---------------------------------------------------------------------------
-# 4. Security headers
-# ---------------------------------------------------------------------------
+def test_security_headers_on_api_prefixed_routes():
+    resp = client.post("/api/scan/url", json={"url": "https://example.com"})
+    assert "default-src 'none'" in resp.headers["content-security-policy"]
+    assert resp.headers["cache-control"] == "no-store"
 
-def test_security_headers_present():
-    resp = client.get("/api/metrics")
-    assert resp.headers.get("x-content-type-options") == "nosniff"
-    assert resp.headers.get("x-frame-options") == "DENY"
-    assert "content-security-policy" in resp.headers
-    assert "strict-transport-security" in resp.headers
+
+def test_cors_allows_only_the_official_site():
+    permitido = client.get("/", headers={"Origin": "https://fraudlens-code.onrender.com"})
+    assert permitido.headers.get("access-control-allow-origin") == "https://fraudlens-code.onrender.com"
+    assert "access-control-allow-credentials" not in permitido.headers
+
+    de_fora = client.get("/", headers={"Origin": "https://site-de-terceiros.example"})
+    assert "access-control-allow-origin" not in de_fora.headers
 
 
 # ---------------------------------------------------------------------------
-# 5. Metrics
+# 4. Limite de consultas
 # ---------------------------------------------------------------------------
 
-def test_metrics_endpoint():
-    resp = client.get("/api/metrics")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "url_scans" in data
-    assert "evidence_scans" in data
-    assert "rate_limit_per_ip_per_minute" in data
+def test_rate_limit_blocks_after_the_limit(monkeypatch):
+    monkeypatch.setattr(main, "RATE_LIMIT", 3)
+    codigos = [client.post("/api/scan/url", json={"url": "https://example.com"}).status_code for _ in range(4)]
+    assert codigos == [200, 200, 200, 429]
+
+
+def test_rate_limit_memory_is_cleaned_up(monkeypatch):
+    monkeypatch.setattr(main, "RATE_MAX_TRACKED_IPS", 10)
+    antigo = main.datetime.now(main.timezone.utc).timestamp() - 10 * main.RATE_WINDOW
+    for i in range(50):
+        main.REQUEST_LOG[f"ip-{i}"] = [antigo]
+    client.post("/api/scan/url", json={"url": "https://example.com"})
+    assert len(main.REQUEST_LOG) == 1  # sobrou só quem acabou de consultar
 
 
 # ---------------------------------------------------------------------------
-# 6. API key never leaked
+# 5. Chaves nunca vazam
 # ---------------------------------------------------------------------------
 
-def test_api_key_not_leaked():
-    for endpoint in ("/api/metrics", "/api/scans/recent"):
-        resp = client.get(endpoint)
-        body = resp.text.lower()
-        assert "key" not in body or "rate_limit" in body
-        assert "google_safe_browsing_api_key" not in body
-        assert "AIza" not in body
+def test_secrets_never_appear_in_responses(monkeypatch):
+    segredos = {"GOOGLE_KEY": "AIzaSegredoGoogle123", "VT_KEY": "segredo-vt-456"}
+    for nome, valor in segredos.items():
+        monkeypatch.setattr(main, nome, valor)
+
+    async def sem_rede(_url):
+        return None
+
+    monkeypatch.setattr(main, "query_google_safe_browsing", sem_rede)
+    monkeypatch.setattr(main, "query_virustotal", sem_rede)
+
+    corpos = [
+        client.get("/").text,
+        client.post("/api/scan/url", json={"url": "https://example.com"}).text,
+    ]
+    for corpo in corpos:
+        for valor in segredos.values():
+            assert valor not in corpo
+
+
+def test_http_client_logs_do_not_expose_urls_or_keys():
+    """O httpx, em nível INFO, escreveria a URL completa (com ?key=...) no log. Tem que ficar em WARNING ou acima."""
+    assert logging.getLogger("httpx").getEffectiveLevel() >= logging.WARNING
+    assert logging.getLogger("httpcore").getEffectiveLevel() >= logging.WARNING
