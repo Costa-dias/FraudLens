@@ -39,6 +39,7 @@ interface ScanResult {
   confidence_score: number;
   summary: string;
   sources_checked?: string[];
+  checks?: Record<string, string>;
   risk_factors?: RiskFactor[];
   technical_details?: {
     scheme?: string;
@@ -54,6 +55,15 @@ const API = BASE_URL.endsWith("/api") ? BASE_URL : `${BASE_URL.replace(/\/$/, ""
 
 // Prints e vídeos são lidos no próprio navegador (QR Code). Limite para não travar o aparelho.
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
+function shareTarget(value: string): string {
+  try {
+    const parsed = new URL(value);
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.origin : "Endereço omitido";
+  } catch {
+    return "Endereço omitido";
+  }
+}
 
 const VERDICT_META: Record<string, { label: string; cls: string; Icon: typeof ShieldCheck }> = {
   SAFE: { label: "BAIXO RISCO", cls: "safe", Icon: ShieldCheck },
@@ -257,9 +267,10 @@ export default function App() {
         scan_type: raw.scan_type || "url",
         target: raw.target || formattedUrl,
         verdict: verdict as Verdict,
-        confidence_score: typeof raw.confidence_score === "number" ? raw.confidence_score : 0,
+        confidence_score: typeof raw.confidence_score === "number" ? Math.min(100, Math.max(0, raw.confidence_score)) : 0,
         summary: raw.summary || "Resumo indisponível.",
         sources_checked: raw.sources_checked || [], // só o que o servidor de fato consultou
+        checks: raw.checks,
         risk_factors: raw.risk_factors || [],
         technical_details: raw.technical_details,
       };
@@ -291,7 +302,7 @@ export default function App() {
 
   const shareReport = async () => {
     if (!result) return;
-    const target = result.target?.startsWith("http") ? result.target.split(/[?#]/)[0] : result.target;
+    const target = shareTarget(result.target);
     const verdict = result.verdict === "SAFE" ? "baixo risco aparente" : result.verdict === "SUSPICIOUS" ? "merece atenção" : "alto risco";
     const text = `FraudLens\nResultado: ${verdict}\nAlvo: ${target}\n${result.summary}`;
     try {
@@ -307,7 +318,7 @@ export default function App() {
 
   const buildDenunciation = () => {
     if (!result) return;
-    const target = result.target?.startsWith("http") ? result.target.split(/[?#]/)[0] : result.target;
+    const target = shareTarget(result.target);
     const verdict = result.verdict === "SAFE" ? "baixo risco aparente" : result.verdict === "SUSPICIOUS" ? "merece atenção" : "alto risco";
     const text =
       `RELATO DE SUSPEITA (sem dados pessoais)\n` +
@@ -488,6 +499,14 @@ export default function App() {
                     </span>
                   ))}
                 </div>
+              )}
+
+              {result.checks && (
+                <p className="panel-note" data-testid="external-checks">
+                  {Object.entries(result.checks).map(([name, status]) =>
+                    `${name === "google" ? "Google" : "VirusTotal"}: ${status === "ok" ? "respondeu" : status === "not_found" ? "sem registro da URL" : status === "not_configured" ? "não configurado" : "indisponível"}`
+                  ).join(" · ")}
+                </p>
               )}
 
               <div className="result-actions">
@@ -684,3 +703,4 @@ const styles = {
     justifyContent: "center",
   },
 };
+

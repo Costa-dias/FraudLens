@@ -179,3 +179,52 @@ def test_http_client_logs_do_not_expose_urls_or_keys():
     """O httpx, em nível INFO, escreveria a URL completa (com ?key=...) no log. Tem que ficar em WARNING ou acima."""
     assert logging.getLogger("httpx").getEffectiveLevel() >= logging.WARNING
     assert logging.getLogger("httpcore").getEffectiveLevel() >= logging.WARNING
+
+
+def test_missing_external_checks_never_look_safe():
+    scan = client.post('/api/scan/url', json={'url': 'https://example.com'}).json()['scan']
+    assert scan['verdict'] == 'SUSPICIOUS'
+    assert scan['checks'] == {'google': 'not_configured', 'virustotal': 'not_configured'}
+
+
+def test_score_is_capped_and_external_statuses_are_visible(monkeypatch):
+    async def google(_url):
+        return {'matches': [{'threatType': 'SOCIAL_ENGINEERING'}]}
+    async def vt(_url):
+        return {'data': {'attributes': {'last_analysis_stats': {'malicious': 50}}}}
+    monkeypatch.setattr(main, 'GOOGLE_KEY', 'test-google')
+    monkeypatch.setattr(main, 'VT_KEY', 'test-vt')
+    monkeypatch.setattr(main, 'query_google_safe_browsing', google)
+    monkeypatch.setattr(main, 'query_virustotal', vt)
+    scan = client.post('/api/scan/url', json={'url': 'https://example.com'}).json()['scan']
+    assert scan['confidence_score'] == 100
+    assert scan['verdict'] == 'DANGEROUS'
+    assert scan['checks'] == {'google': 'ok', 'virustotal': 'ok'}
+
+
+def test_safe_requires_both_external_checks(monkeypatch):
+    async def google(_url): return {}
+    async def vt(_url): return {'data': {'attributes': {'last_analysis_stats': {'malicious': 0}}}}
+    monkeypatch.setattr(main, 'GOOGLE_KEY', 'test-google')
+    monkeypatch.setattr(main, 'VT_KEY', 'test-vt')
+    monkeypatch.setattr(main, 'query_google_safe_browsing', google)
+    monkeypatch.setattr(main, 'query_virustotal', vt)
+    scan = client.post('/api/scan/url', json={'url': 'https://example.com'}).json()['scan']
+    assert scan['verdict'] == 'SAFE'
+
+
+def test_api_failure_is_partial_and_logs_omit_target(monkeypatch, caplog):
+    async def failure(_url): return None
+    monkeypatch.setattr(main, 'GOOGLE_KEY', 'test-google-secret')
+    monkeypatch.setattr(main, 'VT_KEY', 'test-vt-secret')
+    monkeypatch.setattr(main, 'query_google_safe_browsing', failure)
+    monkeypatch.setattr(main, 'query_virustotal', failure)
+    with caplog.at_level(logging.INFO, logger='fraudlens'):
+        scan = client.post('/api/scan/url', json={'url': 'https://example.com/private-token?key=private-secret'}).json()['scan']
+    assert scan['verdict'] == 'SUSPICIOUS'
+    assert set(scan['checks'].values()) == {'unavailable'}
+    assert 'scan_completed' in caplog.text
+    assert 'private-token' not in caplog.text
+    assert 'private-secret' not in caplog.text
+    assert 'test-google-secret' not in caplog.text
+

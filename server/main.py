@@ -45,7 +45,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 logger = logging.getLogger("fraudlens")
-logger.propagate = False
+logger.propagate = True
 
 # O httpx registra (nível INFO) cada requisição com a URL COMPLETA. Sem isto, o log do Render
 # guardaria a chave do Google (…?key=AIza…) e o endereço de cada link verificado
@@ -239,6 +239,7 @@ class ScanResult(BaseModel):
     confidence_score: int
     summary: str
     sources_checked: list[str]
+    checks: dict[str, str]
     risk_factors: list[RiskFactor]
     technical_details: TechnicalDetails
 
@@ -455,7 +456,19 @@ async def scan_url(body: ScanRequest, request: Request):
             ),
         )
 
+    score = min(100, max(0, score))
+    checks = {
+        "google": "ok" if google_res is not None else ("unavailable" if GOOGLE_KEY else "not_configured"),
+        "virustotal": ("not_found" if vt_res and vt_res.get("status") == "not_found" else "ok") if vt_res is not None else ("unavailable" if VT_KEY else "not_configured"),
+    }
     verdict, summary = calculate_verdict(score, google_hit)
+    if any(status != "ok" for status in checks.values()):
+        if verdict == "SAFE":
+            verdict = "SUSPICIOUS"
+            summary = "Verificação incompleta. Os sinais locais não indicaram alto risco, mas faltou confirmação de uma ou mais bases externas."
+        else:
+            summary += " A cobertura das bases externas foi parcial."
+    safe_log("scan_completed", google=checks["google"], virustotal=checks["virustotal"], verdict=verdict)
 
     scan_id = hashlib.md5(f"{target_url}{datetime.now().timestamp()}".encode()).hexdigest()[:10]
 
@@ -467,6 +480,7 @@ async def scan_url(body: ScanRequest, request: Request):
         confidence_score=score,
         summary=summary,
         sources_checked=sources_checked,
+        checks=checks,
         risk_factors=risks,
         technical_details=tech,
     )
@@ -480,3 +494,4 @@ app.include_router(api_router)
 @app.get("/")
 async def root():
     return {"status": "ok", "service": "FraudLens API"}
+
