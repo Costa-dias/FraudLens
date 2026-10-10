@@ -142,7 +142,14 @@ export default function App() {
   const loadHistory = () => {
     try {
       const raw = localStorage.getItem("fraudlens_history");
-      if (raw) setHistory(JSON.parse(raw));
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (Array.isArray(saved)) {
+          setHistory(saved.filter(item => item && typeof item.target === "string" && VERDICT_META[item.verdict])
+            .slice(0, 20)
+            .map(item => ({ ...item, confidence_score: Number.isFinite(item.confidence_score) ? Math.min(100, Math.max(0, item.confidence_score)) : 0 })));
+        }
+      }
     } catch {
       /* ignore */
     }
