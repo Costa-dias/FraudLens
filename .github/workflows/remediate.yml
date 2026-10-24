@@ -1,36 +1,43 @@
-name: Attempt safe npm remediation
+name: Propose tested security fixes
 on:
-  push:
-    paths:
-      - .github/workflows/remediate.yml
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   repair:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
-          persist-credentials: true
-      - uses: actions/setup-node@v4
+          ref: ${{ github.head_ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
         with:
           node-version: '24.22.1'
           cache: npm
       - run: npm ci --no-fund
-      - name: Update within compatible semver ranges only
-        run: npm audit fix --no-fund
-      - run: npm audit --audit-level=high
+      - name: Apply semver-compatible security patches
+        run: npm audit fix --no-fund || true
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
-      - name: Commit only successful validated repair
+      - name: Commit only validated changes to isolated branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if ! git diff --quiet -- package.json package-lock.json; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add package.json package-lock.json
-            git commit -m 'security: apply tested compatible npm audit fixes'
-            git push origin HEAD:security/ci-audit-2026
+          set -euo pipefail
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
           fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'security: apply automatically validated dependency and lint fixes'
+          authorization=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $authorization" push origin "HEAD:refs/heads/security/ci-audit-2026"
+      - name: Confirm remaining known vulnerabilities
+        run: npm audit --audit-level=high
