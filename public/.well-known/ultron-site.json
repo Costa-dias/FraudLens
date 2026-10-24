@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "owner": "Costa-dias",
+  "host": "fraudlens-code.onrender.com",
+  "repository": "Costa-dias/FraudLens",
+  "registration": "5047dfc4b24c02a846cb0298d7673627",
+  "scope": [
+    "https-headers"
+  ]
+}
