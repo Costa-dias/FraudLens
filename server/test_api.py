@@ -156,7 +156,7 @@ def test_rate_limit_memory_is_cleaned_up(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_secrets_never_appear_in_responses(monkeypatch):
-    segredos = {"GOOGLE_KEY": "AIzaSegredoGoogle123", "VT_KEY": "segredo-vt-456"}
+    segredos = {"GOOGLE_KEY": "fake-google-credential-for-test", "VT_KEY": "fake-vt-credential-for-test"}
     for nome, valor in segredos.items():
         monkeypatch.setattr(main, nome, valor)
 
