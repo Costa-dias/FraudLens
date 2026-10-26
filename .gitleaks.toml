@@ -1,0 +1,5 @@
+# Narrow exception for a historical fake credential in a security regression test.
+# Do not ignore any other file, key type, or commit.
+[allowlist]
+  description = "Historical fake key in server/test_api.py (Sep 2026)"
+  fingerprints = ["e528a6903c57690d2b6cb9db6c4181c30839768f:server/test_api.py:generic-api-key:159"]
