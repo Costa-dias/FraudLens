@@ -5,6 +5,7 @@ import ipaddress
 import logging
 import os
 import re
+import secrets
 import socket
 import time
 from datetime import datetime, timezone
@@ -67,7 +68,7 @@ def safe_log(event: str, **kwargs):
 # Security helpers
 # --------------------------------------------------------------------------
 
-BLOCKED_HOSTS = {"localhost", "0.0.0.0", "metadata.google.internal", "metadata"}
+BLOCKED_HOSTS = {"localhost", "0.0.0.0", "metadata.google.internal", "metadata"}  # nosec B104: deny-list, not a bind address
 ALLOWED_SCHEMES = {"http", "https"}
 
 URL_DANGEROUS_RE = re.compile(r"[<>\s\"'\\]")
@@ -470,7 +471,7 @@ async def scan_url(body: ScanRequest, request: Request):
             summary += " A cobertura das bases externas foi parcial."
     safe_log("scan_completed", google=checks["google"], virustotal=checks["virustotal"], verdict=verdict)
 
-    scan_id = hashlib.md5(f"{target_url}{datetime.now().timestamp()}".encode()).hexdigest()[:10]
+    scan_id = secrets.token_hex(5)  # Random ID without the scanned URL or timestamp
 
     result = ScanResult(
         id=scan_id,
