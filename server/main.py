@@ -25,6 +25,7 @@ RATE_WINDOW = 60
 RATE_MAX_TRACKED_IPS = 5000  # acima disso, limpamos da memória os IPs antigos
 GOOGLE_TIMEOUT = 6.0
 MAX_URL_LENGTH = 2048
+MAX_ANALYSIS_AGE_SECONDS = 7 * 24 * 60 * 60
 
 GOOGLE_KEY = os.environ.get("GOOGLE_SAFE_BROWSING_API_KEY")
 VT_KEY = os.environ.get("VIRUSTOTAL_API_KEY")
@@ -236,8 +237,12 @@ class ScanResult(BaseModel):
     id: str
     scan_type: str
     target: str
-    verdict: Literal["SAFE", "SUSPICIOUS", "DANGEROUS"]
-    confidence_score: int
+    verdict: Literal["SAFE", "SUSPICIOUS", "DANGEROUS", "INCONCLUSIVE"]
+    confidence_score: int  # compatibility alias; this has always represented risk
+    risk_score: int
+    coverage: Literal["complete", "partial"]
+    analyzed_at: str
+    virustotal_analyzed_at: str | None
     summary: str
     sources_checked: list[str]
     checks: dict[str, str]
@@ -260,7 +265,7 @@ def analyze_url_structure(target_url: str) -> tuple[list[RiskFactor], TechnicalD
     score = 0
     hostname = (parsed.hostname or "").lower()
 
-    if "testsafebrowsing" in target_url or "phish.test" in target_url or "phishing.html" in target_url:
+    if hostname in {"testsafebrowsing.appspot.com", "phish.test"}:
         risks.append(
             RiskFactor(
                 title="URL de Teste de Phishing/Ameaça",
@@ -343,17 +348,15 @@ def analyze_url_structure(target_url: str) -> tuple[list[RiskFactor], TechnicalD
         )
         score += 10
 
-    suspicious_keywords = ["login", "verify", "suporte", "atualizacao", "recadastro", "pix", "bradesco", "itau", "caixa", "nubank", "mercadolivre"]
-    found_words = [w for w in suspicious_keywords if w in target_url.lower()]
-    if found_words:
-        risks.append(
-            RiskFactor(
-                title="Termos sensíveis na URL",
-                description=f"Identificadas palavras atreladas a serviços financeiros/login: {', '.join(found_words[:3])}.",
-                severity="medium"
-            )
-        )
-        score += 20
+    # Financial/login vocabulary is normal on legitimate sites. It is context,
+    # not evidence, and must not increase risk by itself.
+    if any(label.startswith("xn--") for label in hostname.split(".")):
+        risks.append(RiskFactor(
+            title="Domínio internacionalizado",
+            description="O endereço usa punycode. Confira o domínio: caracteres parecidos podem imitar outra marca.",
+            severity="low",
+        ))
+        score += 10
 
     tech = TechnicalDetails(
         scheme=parsed.scheme or "http",
@@ -364,7 +367,7 @@ def analyze_url_structure(target_url: str) -> tuple[list[RiskFactor], TechnicalD
     return risks, tech, min(score, 100)
 
 
-def calculate_verdict(score: int, google_hit: bool) -> tuple[Literal["SAFE", "SUSPICIOUS", "DANGEROUS"], str]:
+def calculate_verdict(score: int, google_hit: bool) -> tuple[Literal["SAFE", "SUSPICIOUS", "DANGEROUS", "INCONCLUSIVE"], str]:
     if google_hit or score >= 60:
         return "DANGEROUS", "Alto risco identificado. Fortes indícios de golpe, phishing ou página não confiável."
     elif score >= 25:
@@ -377,7 +380,7 @@ def calculate_verdict(score: int, google_hit: bool) -> tuple[Literal["SAFE", "SU
 # API Initialization & Routes
 # --------------------------------------------------------------------------
 
-app = FastAPI(title="FraudLens API", version="1.1.0")
+app = FastAPI(title="FraudLens API", version="1.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -424,6 +427,8 @@ async def scan_url(body: ScanRequest, request: Request):
         sources_checked.append("Google Safe Browsing")
 
     vt_malicious = 0
+    vt_analyzed_at = None
+    vt_fresh = False
     if VT_KEY and vt_res is not None:
         if vt_res.get("status") == "not_found":
             # O VirusTotal respondeu, mas nunca analisou esta URL: não dá para dizer que "consultou e está limpo".
@@ -432,6 +437,10 @@ async def scan_url(body: ScanRequest, request: Request):
             sources_checked.append("VirusTotal")
             stats = vt_res.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
             vt_malicious = stats.get("malicious", 0)
+            stamp = vt_res.get("data", {}).get("attributes", {}).get("last_analysis_date")
+            if isinstance(stamp, (int, float)) and 0 < stamp <= time.time():
+                vt_analyzed_at = datetime.fromtimestamp(stamp, timezone.utc).isoformat()
+                vt_fresh = time.time() - stamp <= MAX_ANALYSIS_AGE_SECONDS
 
     risks, tech, score = analyze_url_structure(target_url)
 
@@ -462,10 +471,13 @@ async def scan_url(body: ScanRequest, request: Request):
         "google": "ok" if google_res is not None else ("unavailable" if GOOGLE_KEY else "not_configured"),
         "virustotal": ("not_found" if vt_res and vt_res.get("status") == "not_found" else "ok") if vt_res is not None else ("unavailable" if VT_KEY else "not_configured"),
     }
+    if checks["virustotal"] == "ok" and not vt_fresh:
+        checks["virustotal"] = "stale"
+    coverage = "complete" if all(status == "ok" for status in checks.values()) else "partial"
     verdict, summary = calculate_verdict(score, google_hit)
-    if any(status != "ok" for status in checks.values()):
+    if coverage == "partial":
         if verdict == "SAFE":
-            verdict = "SUSPICIOUS"
+            verdict = "INCONCLUSIVE"
             summary = "Verificação incompleta. Os sinais locais não indicaram alto risco, mas faltou confirmação de uma ou mais bases externas."
         else:
             summary += " A cobertura das bases externas foi parcial."
@@ -479,6 +491,10 @@ async def scan_url(body: ScanRequest, request: Request):
         target=target_url,
         verdict=verdict,
         confidence_score=score,
+        risk_score=score,
+        coverage=coverage,
+        analyzed_at=datetime.now(timezone.utc).isoformat(),
+        virustotal_analyzed_at=vt_analyzed_at,
         summary=summary,
         sources_checked=sources_checked,
         checks=checks,

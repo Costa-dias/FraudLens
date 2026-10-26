@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 type Severity = "low" | "medium" | "high";
-type Verdict = "SAFE" | "SUSPICIOUS" | "DANGEROUS";
+type Verdict = "SAFE" | "SUSPICIOUS" | "DANGEROUS" | "INCONCLUSIVE";
 
 interface RiskFactor {
   title: string;
@@ -37,6 +37,10 @@ interface ScanResult {
   target: string;
   verdict: Verdict;
   confidence_score: number;
+  risk_score?: number;
+  coverage?: "complete" | "partial";
+  analyzed_at?: string;
+  virustotal_analyzed_at?: string | null;
   summary: string;
   sources_checked?: string[];
   checks?: Record<string, string>;
@@ -69,6 +73,7 @@ const VERDICT_META: Record<string, { label: string; cls: string; Icon: typeof Sh
   SAFE: { label: "BAIXO RISCO", cls: "safe", Icon: ShieldCheck },
   SUSPICIOUS: { label: "MERECE ATENÇÃO", cls: "suspicious", Icon: ShieldQuestion },
   DANGEROUS: { label: "ALTO RISCO", cls: "danger", Icon: ShieldAlert },
+  INCONCLUSIVE: { label: "INCONCLUSIVO", cls: "unknown", Icon: ShieldQuestion },
   UNKNOWN: { label: "SEM RESULTADO", cls: "unknown", Icon: ShieldQuestion },
 };
 
@@ -265,7 +270,7 @@ export default function App() {
 
       // Sem veredito válido, não inventamos resultado: um erro é melhor que um "baixo risco" falso.
       const verdict = String(raw?.verdict ?? "").toUpperCase();
-      if (!raw || !["SAFE", "SUSPICIOUS", "DANGEROUS"].includes(verdict)) {
+      if (!raw || !["SAFE", "SUSPICIOUS", "DANGEROUS", "INCONCLUSIVE"].includes(verdict)) {
         throw new Error("Resposta inesperada do servidor");
       }
 
@@ -276,6 +281,10 @@ export default function App() {
         verdict: verdict as Verdict,
         confidence_score: typeof raw.confidence_score === "number" ? Math.min(100, Math.max(0, raw.confidence_score)) : 0,
         summary: raw.summary || "Resumo indisponível.",
+        risk_score: typeof raw.risk_score === "number" ? Math.min(100, Math.max(0, raw.risk_score)) : undefined,
+        coverage: raw.coverage,
+        analyzed_at: raw.analyzed_at,
+        virustotal_analyzed_at: raw.virustotal_analyzed_at,
         sources_checked: raw.sources_checked || [], // só o que o servidor de fato consultou
         checks: raw.checks,
         risk_factors: raw.risk_factors || [],
@@ -310,7 +319,7 @@ export default function App() {
   const shareReport = async () => {
     if (!result) return;
     const target = shareTarget(result.target);
-    const verdict = result.verdict === "SAFE" ? "baixo risco aparente" : result.verdict === "SUSPICIOUS" ? "merece atenção" : "alto risco";
+    const verdict = result.verdict === "SAFE" ? "baixo risco aparente" : result.verdict === "SUSPICIOUS" ? "merece atenção" : result.verdict === "INCONCLUSIVE" ? "inconclusivo" : "alto risco";
     const text = `FraudLens\nResultado: ${verdict}\nAlvo: ${target}\n${result.summary}`;
     try {
       if (navigator.share) await navigator.share({ title: "Resultado FraudLens", text });
@@ -326,9 +335,9 @@ export default function App() {
   const buildDenunciation = () => {
     if (!result) return;
     const target = shareTarget(result.target);
-    const verdict = result.verdict === "SAFE" ? "baixo risco aparente" : result.verdict === "SUSPICIOUS" ? "merece atenção" : "alto risco";
+    const verdict = result.verdict === "SAFE" ? "baixo risco aparente" : result.verdict === "SUSPICIOUS" ? "merece atenção" : result.verdict === "INCONCLUSIVE" ? "inconclusivo" : "alto risco";
     const text =
-      `RELATO DE SUSPEITA (sem dados pessoais)\n` +
+      `RELATO PARA REVISÃO (destino reduzido ao domínio)\n` +
       `----------------------------------------\n` +
       `Plataforma: FraudLens\n` +
       `Data: ${new Date().toLocaleDateString("pt-BR")}\n` +
@@ -346,7 +355,7 @@ export default function App() {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Denúncia anônima copiada para a área de transferência");
+      toast.success("Relato copiado. Revise antes de compartilhar; nenhum envio foi feito.");
     } catch (error) {
       if ((error as Error).name !== "AbortError") toast.error("Não foi possível compartilhar");
     }
@@ -389,7 +398,7 @@ export default function App() {
             <em>Confira antes de abrir.</em>
           </h1>
           <p className="lede">
-            Cole uma URL, envie um print ou leia um QR Code. Receba sinais claros para decidir com mais segurança.
+            Verifique uma URL ou extraia um QR Code de imagem ou vídeo no seu aparelho. Receba sinais explicados para decidir com mais segurança.
           </p>
 
           <div className="scanner-panel">
@@ -479,8 +488,8 @@ export default function App() {
                 <h2>O que encontramos</h2>
               </div>
               <span className="score" data-testid="result-score">
-                {result.confidence_score}
-                <small>/100 sinais</small>
+                {result.risk_score ?? result.confidence_score}
+                <small>/100 risco</small>
               </span>
             </div>
 
@@ -511,11 +520,17 @@ export default function App() {
               {result.checks && (
                 <p className="panel-note" data-testid="external-checks">
                   {Object.entries(result.checks).map(([name, status]) =>
-                    `${name === "google" ? "Google" : "VirusTotal"}: ${status === "ok" ? "respondeu" : status === "not_found" ? "sem registro da URL" : status === "not_configured" ? "não configurado" : "indisponível"}`
+                    `${name === "google" ? "Google" : "VirusTotal"}: ${status === "ok" ? "respondeu" : status === "not_found" ? "sem registro da URL" : status === "not_configured" ? "não configurado" : status === "stale" ? "análise antiga ou sem data" : "indisponível"}`
                   ).join(" · ")}
                 </p>
               )}
 
+              <p className="panel-note">
+                Cobertura: {result.coverage === 'complete' ? 'completa nas bases configuradas' : result.coverage === 'partial' ? 'parcial — resultado limitado' : 'não informada nesta análise'}.
+                {' '}A pontuação mede sinais de risco, não uma probabilidade de golpe.
+                {result.analyzed_at && ` Consulta: ${new Date(result.analyzed_at).toLocaleString('pt-BR')}.`}
+                {result.virustotal_analyzed_at && ` Última análise no VirusTotal: ${new Date(result.virustotal_analyzed_at).toLocaleString('pt-BR')}.`}
+              </p>
               <div className="result-actions">
                 <button className="details-toggle" onClick={() => setDetails(!details)} data-testid="toggle-details">
                   {details ? "Ocultar detalhes" : "Ver relatório detalhado"}
@@ -525,7 +540,7 @@ export default function App() {
                   Compartilhar resumo <ArrowRight size={15} />
                 </button>
                 <button className="share-button" onClick={shareDenunciation} data-testid="denunciation-button">
-                  Gerar denúncia anônima <ShieldAlert size={15} />
+                  Preparar relato <ShieldAlert size={15} />
                 </button>
               </div>
 
@@ -598,7 +613,7 @@ export default function App() {
                 onClick={() => setResult(item)}
                 data-testid={`local-scan-${item.id}`}
               >
-                <span className={`mini-dot ${item.verdict === "SAFE" ? "safe" : item.verdict === "SUSPICIOUS" ? "warn" : "danger"}`} />
+                <span className={`mini-dot ${item.verdict === "SAFE" ? "safe" : item.verdict === "DANGEROUS" ? "danger" : "warn"}`} />
                 <code>{item.target}</code>
                 <ArrowRight size={15} />
               </button>
@@ -623,9 +638,9 @@ const styles = {
   container: {
     position: "fixed" as const,
     bottom: "24px",
-    right: "24px",
+    right: "16px",
     zIndex: 9999,
-    width: "350px",
+    width: "min(350px, calc(100vw - 32px))",
     borderRadius: "14px",
     background: "#0c0d12",
     border: "1px solid rgba(255, 59, 48, 0.4)",

@@ -215,6 +215,7 @@
 
   .url-row input {
     flex: 1;
+    min-width: 0;
     background: transparent;
     border: none;
     outline: none;
@@ -727,6 +728,9 @@
   }
 
   @media (max-width: 720px) {
+    .url-row { flex-wrap: wrap; }
+    .url-row button { width: 100%; justify-content: center; }
+    .url-row input { flex-basis: calc(100% - 40px); }
     .trust-strip {
       grid-template-columns: 1fr;
     }

@@ -1,53 +1,52 @@
-# 🛡️ FraudLens · Segurança antes do clique
+# FraudLens — segurança antes do clique
 
-<div align="center">
+Verificador de URLs com sinais explicados, API FastAPI e interface React/TypeScript. Imagens e vídeos são usados apenas para extração local de QR Codes; não são enviados ao servidor e não passam por análise completa da mensagem.
 
-[![Status do Deploy](https://img.shields.io/badge/Deploy-Online-success?style=for-the-badge&logo=render)](https://fraudlens-code.onrender.com)
-[![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.0+-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+- [Aplicação](https://fraudlens-code.onrender.com/)
+- [API](https://fraudlens-i54g.onrender.com/)
 
-**Uma ferramenta inteligente e anônima para verificação de links, prints e QR Codes suspeitos antes de você cair em golpes.**
+## O que a análise faz
 
-</div>
+Analisa a estrutura do endereço e, quando configuradas, consulta Google Safe Browsing e o relatório existente do VirusTotal. Não navega no site de destino nem realiza uma inspeção própria do certificado TLS. HTTPS é apenas um dos sinais estruturais.
 
----
+A resposta separa `risk_score` (0–100, sinais heurísticos; não é uma probabilidade estatística) de `coverage` (complete/partial). `confidence_score` permanece como alias de risco para clientes antigos. Os estados são SAFE (baixo risco aparente), SUSPICIOUS (sinais suspeitos), DANGEROUS (alto risco) e INCONCLUSIVE (informação insuficiente sem sinais locais relevantes).
 
-## 🚀 Sobre o Projeto
+Relatórios do VirusTotal com mais de sete dias ou sem data têm cobertura parcial. A data externa e a data da consulta são exibidas. Uma classificação limpa não garante segurança. Palavras usuais como login e pix não somam risco por si só.
 
-O **FraudLens** foi desenvolvido para ajudar usuários comuns e equipes a analisarem rapidamente a credibilidade de páginas da Web, capturas de tela (prints) ou códigos QR. Com uma interface limpa e focada em privacidade, o sistema cruza dados locais e informações de fontes de segurança para emitir um veredito claro.
+## Privacidade e limites
 
-### ✨ Principais Recursos
+- Histórico no navegador, com opção de apagar; URLs são enviadas à API e às bases externas consultadas. Não use links com tokens ou dados sensíveis.
+- Chaves somente no servidor; logs omitem alvos e credenciais.
+- Limite por IP em memória, CORS restrito, timeouts e validação de URLs.
+- “Preparar relato” copia um texto para revisão; não envia denúncia a nenhum órgão e não garante anonimato após compartilhamento.
+- Sem consulta ao destino final de links encurtados. Não é antivírus ou garantia de segurança.
 
-* **🌐 Análise de URLs:** Verifica a estrutura do link, certificados e sinais de alerta em tempo real.
-* **📸 Leitura de Print / Fotos:** Permite enviar evidências visuais de mensagens suspeitas.
-* **📱 Leitor de QR Code integrado:** Lê códigos diretamente de imagens ou vídeos curtos enviados pelo usuário.
-* **🔒 Privacidade em primeiro lugar:** Uso totalmente anônimo, sem exigência de cadastro e com histórico salvo apenas no armazenamento local do navegador (*localStorage*).
-* **🚨 Geração de Denúncia Anônima:** Cria um resumo formatado do golpe detectado para fácil compartilhamento com familiares ou autoridades.
+## Executar e validar
 
----
+Node.js 24 para o frontend:
 
-## 🛠️ Tecnologias Utilizadas
+```bash
+npm ci
+npm run dev
+npm run typecheck
+npm run lint
+npm run build
+```
 
-Este repositório contém o **Frontend** da aplicação:
-* **React** com **TypeScript**
-* **Vite** (Build tool rápida e otimizada)
-* **Axios** (Requisições HTTP para a API)
-* **Tailwind CSS / Estilos customizados** (Design responsivo e moderno)
-* **Lucide React** (Ícones)
-* **jsQR** (Decodificação de QR codes via navegador)
+Backend (a partir da raiz):
 
----
+```bash
+python -m pip install -r requirements.txt pytest
+python -m uvicorn server.main:app --host 127.0.0.1 --port 8000
+python -m pytest server/test_api.py -q
+```
 
-## 📂 Estrutura do Repositório
+Configure `VITE_API_URL` no frontend e `GOOGLE_SAFE_BROWSING_API_KEY`, `VIRUSTOTAL_API_KEY`, `CORS_ORIGINS` no ambiente do servidor. Nunca coloque chaves em variáveis VITE. Sem bases disponíveis, resultados sem sinais críticos ficam inconclusivos.
 
-```text
-fraudlens-code/
-├── src/
-│   ├── App.tsx          # Componente principal e lógica de interface/API
-│   ├── main.tsx         # Ponto de entrada da aplicação React
-│   ├── index.css        # Estilos globais do sistema
-│   └── vite-env.d.ts    # Tipagens do Vite
-├── public/              # Assets estáticos
-├── package.json         # Dependências e scripts do projeto
-└── README.md            # Documentação do projeto
+## Estrutura
+
+`src/` contém interface, QR local e histórico. `server/main.py` contém a API; `server/test_api.py` testa com DNS e serviços externos simulados, sem consultar URLs reais.
+
+## Publicação
+
+Frontend e API precisam ser atualizados juntos para o novo estado INCONCLUSIVE e os metadados de cobertura. O frontend também aceita o formato anterior. Validar build não comprova o estado das chaves ou das cotas em produção.

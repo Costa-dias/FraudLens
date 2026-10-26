@@ -41,7 +41,7 @@ def test_url_scan_valid():
     assert resp.status_code == 200, resp.text
     scan = resp.json()["scan"]
     assert scan["scan_type"] == "url"
-    assert scan["verdict"] in ("SAFE", "SUSPICIOUS", "DANGEROUS")
+    assert scan["verdict"] in ("SAFE", "SUSPICIOUS", "DANGEROUS", "INCONCLUSIVE")
     assert scan["target"] == "https://example.com"
     assert "summary" in scan
     assert isinstance(scan["sources_checked"], list)
@@ -183,7 +183,7 @@ def test_http_client_logs_do_not_expose_urls_or_keys():
 
 def test_missing_external_checks_never_look_safe():
     scan = client.post('/api/scan/url', json={'url': 'https://example.com'}).json()['scan']
-    assert scan['verdict'] == 'SUSPICIOUS'
+    assert scan['verdict'] == 'INCONCLUSIVE'
     assert scan['checks'] == {'google': 'not_configured', 'virustotal': 'not_configured'}
 
 
@@ -191,7 +191,7 @@ def test_score_is_capped_and_external_statuses_are_visible(monkeypatch):
     async def google(_url):
         return {'matches': [{'threatType': 'SOCIAL_ENGINEERING'}]}
     async def vt(_url):
-        return {'data': {'attributes': {'last_analysis_stats': {'malicious': 50}}}}
+        return {'data': {'attributes': {'last_analysis_date': main.time.time(), 'last_analysis_stats': {'malicious': 50}}}}
     monkeypatch.setattr(main, 'GOOGLE_KEY', 'test-google')
     monkeypatch.setattr(main, 'VT_KEY', 'test-vt')
     monkeypatch.setattr(main, 'query_google_safe_browsing', google)
@@ -204,7 +204,7 @@ def test_score_is_capped_and_external_statuses_are_visible(monkeypatch):
 
 def test_safe_requires_both_external_checks(monkeypatch):
     async def google(_url): return {}
-    async def vt(_url): return {'data': {'attributes': {'last_analysis_stats': {'malicious': 0}}}}
+    async def vt(_url): return {'data': {'attributes': {'last_analysis_date': main.time.time(), 'last_analysis_stats': {'malicious': 0}}}}
     monkeypatch.setattr(main, 'GOOGLE_KEY', 'test-google')
     monkeypatch.setattr(main, 'VT_KEY', 'test-vt')
     monkeypatch.setattr(main, 'query_google_safe_browsing', google)
@@ -221,10 +221,39 @@ def test_api_failure_is_partial_and_logs_omit_target(monkeypatch, caplog):
     monkeypatch.setattr(main, 'query_virustotal', failure)
     with caplog.at_level(logging.INFO, logger='fraudlens'):
         scan = client.post('/api/scan/url', json={'url': 'https://example.com/private-token?key=private-secret'}).json()['scan']
-    assert scan['verdict'] == 'SUSPICIOUS'
+    assert scan['verdict'] == 'INCONCLUSIVE'
     assert set(scan['checks'].values()) == {'unavailable'}
     assert 'scan_completed' in caplog.text
     assert 'private-token' not in caplog.text
     assert 'private-secret' not in caplog.text
     assert 'test-google-secret' not in caplog.text
 
+
+
+@pytest.mark.parametrize("url", ["https://example.com/login", "https://nubank.com.br", "https://example.com/pix/verify"])
+def test_legitimate_vocabulary_is_not_evidence(url):
+    risks, _, score = main.analyze_url_structure(url)
+    assert score == 0
+    assert not risks
+
+
+def test_stale_report_cannot_produce_safe(monkeypatch):
+    async def google(_url): return {}
+    async def vt(_url):
+        return {'data': {'attributes': {'last_analysis_date': main.time.time() - 8 * 86400,
+                                       'last_analysis_stats': {'malicious': 0}}}}
+    monkeypatch.setattr(main, 'GOOGLE_KEY', 'test-google')
+    monkeypatch.setattr(main, 'VT_KEY', 'test-vt')
+    monkeypatch.setattr(main, 'query_google_safe_browsing', google)
+    monkeypatch.setattr(main, 'query_virustotal', vt)
+    scan = client.post('/api/scan/url', json={'url': 'https://example.com'}).json()['scan']
+    assert scan['verdict'] == 'INCONCLUSIVE'
+    assert scan['risk_score'] == 0
+    assert scan['coverage'] == 'partial'
+    assert scan['virustotal_analyzed_at']
+    assert scan['checks']['virustotal'] == 'stale'
+
+
+def test_test_site_names_in_query_are_not_threat_evidence():
+    _, _, score = main.analyze_url_structure('https://example.com/help?topic=phishing.html&site=testsafebrowsing')
+    assert score == 0
