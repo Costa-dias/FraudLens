@@ -1,5 +1,23 @@
 # Auditoria de segurança — 27/10/2026
 
+## Atualização: integração e implantação autorizadas em 27/10/2026
+
+Após a auditoria inicial, o proprietário autorizou integrar as correções e realizar o deploy, mantendo o Supabase sem testes enquanto estiver hibernando. Esta seção registra o estado posterior e substitui as pendências de merge/deploy mencionadas no registro inicial abaixo. Os limites de auditoria e de testes não executados continuam válidos.
+
+Commit auditado integrado à `main`: `65ebc7fcf3a893ec0667eb2e28a6b0bf29f13829`.
+
+- FraudLens frontend: deploy **live**, concluído em 2026-10-27T13:25:21.804856Z (UTC), no commit auditado.
+- FraudLens API: deploy **live**, concluído em 2026-10-27T13:26:35.907319Z (UTC), no commit auditado.
+
+Página pública, JavaScript e CSS responderam HTTP 200. Smoke test do código servido em produção passou em Chromium móvel e desktop, sem erros de JavaScript. O teste usou requisições Playwright com o CA do proxy da plataforma para validar TLS; a verificação TLS não foi desativada. Chamadas de origens externas foram bloqueadas no navegador de teste.
+
+A variável não secreta `PYTHON_VERSION` do serviço existente foi atualizada para **3.11.18**, preservando todas as demais variáveis. Os logs do build ativo confirmam Python 3.11.18 e certifi 2026.10.23. `/`, `/docs` e `/openapi.json` responderam HTTP 200; o endpoint raiz confirmou a identidade da API. Consulta de logs recentes após a publicação não retornou erros. A pendência de atualização do runtime em produção está **CORRIGIDA**. Nenhuma credencial foi alterada.
+
+Nenhuma tabela, política RLS, configuração Supabase, credencial ou dado de usuário foi alterado. O registro abaixo descreve a etapa inicial, anterior à autorização de deploy. Esta atualização é somente documental e usa `[skip render]` para não provocar outro deploy.
+
+---
+
+
 Repositório: `Costa-dias/FraudLens`. Responsável: Codex. Base auditada: `63dbdb9ee6ada5e94466da3f757e0a57d97b799d`.
 Branch de trabalho: `security/audit-2026-10-27`. Este relatório acompanha o commit de correção/documentação desta branch; consulte seu SHA no histórico do arquivo.
 
