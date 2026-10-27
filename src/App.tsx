@@ -506,6 +506,22 @@ export default function App() {
                 {result.summary}
               </p>
 
+              <div className="panel-note" data-testid="domain-explanation">
+                <strong>Domínio analisado: </strong>
+                <code>{result.technical_details?.hostname || (() => { try { return new URL(result.target).hostname || "Não identificado"; } catch { return "Não identificado"; } })()}</code>
+                <br />O domínio é o endereço do site; nomes parecidos com o de uma empresa não comprovam que ele seja oficial.
+              </div>
+              {(result.risk_factors || []).length > 0 && (
+                <div className="panel-note" data-testid="risk-explanation">
+                  <strong>Sinais observados nesta análise:</strong>
+                  <ul>{result.risk_factors!.map((factor, index) => <li key={`${factor.title}-${index}`}><strong>{factor.title}:</strong> {factor.description}</li>)}</ul>
+                </div>
+              )}
+              <div className="panel-note">
+                Confira também em serviços independentes: <a href="https://www.virustotal.com/" target="_blank" rel="noopener noreferrer">VirusTotal</a> · <a href="https://urlscan.io/" target="_blank" rel="noopener noreferrer">urlscan.io</a>.
+                {' '}Você sairá do FraudLens; não envie links privados ou com dados sensíveis a esses serviços. Nenhuma análise garante que um link seja seguro.
+              </div>
+
               {result.sources_checked && result.sources_checked.length > 0 && (
                 <div className="source-row">
                   <span>fontes consultadas</span>
