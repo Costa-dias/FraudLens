@@ -26,3 +26,7 @@ dist-ssr
 __pycache__/
 *.pyc
 *.pyo
+
+# Local audit and development virtual environments
+.venv*/
+.pytest_cache/

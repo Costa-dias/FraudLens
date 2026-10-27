@@ -3,4 +3,5 @@ starlette==1.9.0
 uvicorn[standard]==0.54.0
 httpx==0.28.1
 pydantic==2.14.1
-
+# GHSA-6q48-6c7w-9gw2: prevent reuse of vulnerable transitive CA bundles.
+certifi==2026.10.23
