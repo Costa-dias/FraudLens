@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import { requestScan } from "./lib/scanRequest";
 import { readQr } from "./lib/readQr";
 import toast, { Toaster } from "react-hot-toast";
 import {
@@ -141,6 +142,8 @@ export default function App() {
   const [qrValue, setQrValue] = useState<string | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [scanMessage, setScanMessage] = useState("");
+  const [scanError, setScanError] = useState("");
   const [details, setDetails] = useState(false);
   const [history, setHistory] = useState<ScanResult[]>([]);
 
@@ -189,6 +192,8 @@ export default function App() {
 
   const handleFile = async (selected?: File) => {
     if (!selected) return;
+    mediaRequest.current?.abort();
+    setReading(false);
     if (selected.size > MAX_FILE_BYTES) {
       toast.error("Arquivo grande demais (máximo 25 MB).");
       return;
@@ -218,6 +223,7 @@ export default function App() {
     request.current?.abort();
     const controller = new AbortController(); request.current = controller;
     setLoading(true);
+    setScanError("");
     setResult(null);
     setDetails(false);
 
@@ -227,11 +233,9 @@ export default function App() {
     }
 
     try {
-      const response = await axios.post(
-        `${API}/scan/url`,
-        { url: formattedUrl },
-        { headers: { "Content-Type": "application/json" }, timeout: 30000, signal: controller.signal }
-      );
+      const response = await requestScan(API, formattedUrl, controller.signal, message => {
+        if (request.current === controller && !controller.signal.aborted) setScanMessage(message);
+      });
 
       if (request.current !== controller || controller.signal.aborted) return;
       const raw = response.data?.scan;
@@ -264,11 +268,13 @@ export default function App() {
       toast.success("Análise concluída");
     } catch (error) {
       if (request.current !== controller || controller.signal.aborted) return;
-      if (axios.isAxiosError(error)) {
-        toast.error(error.code === "ECONNABORTED" ? "A consulta excedeu 30 segundos. Tente novamente." : typeof error.response?.data?.detail === "string" ? error.response.data.detail : "Não foi possível concluir a análise");
-      } else {
-        toast.error("Não foi possível concluir a análise");
-      }
+      const message = axios.isAxiosError(error) && typeof error.response?.data?.detail === "string"
+        ? error.response.data.detail
+        : axios.isAxiosError(error) && error.code === "ECONNABORTED"
+          ? "O servidor demorou para responder. Aguarde um momento e tente novamente; nenhum resultado foi gerado."
+          : "Não foi possível conectar ao serviço de análise. Confira sua conexão e tente novamente.";
+      setScanError(message);
+      toast.error(message);
     } finally {
       if (request.current === controller) { setLoading(false); request.current = null; }
     }
@@ -382,6 +388,7 @@ export default function App() {
               )}
             </div>
 
+            {scanError && <div role="alert" className="muted" style={{ padding: '12px', border: '1px solid #cf6b88', borderRadius: 12 }}><strong>Análise não concluída</strong><p>{scanError}</p><p>O endereço permanece no campo para você tentar novamente.</p></div>}
             <form onSubmit={scan} data-testid="scan-form">
               {mode === "url" ? (
                 <div className="url-row">
@@ -442,11 +449,11 @@ export default function App() {
           </div>
         </section>
 
-        {(loading || reading) && <button type="button" onClick={cancel}>Cancelar {loading ? "consulta (limite de 30 segundos)" : "leitura de QR"}</button>}
+        {(loading || reading) && <button type="button" onClick={cancel}>Cancelar {loading ? "consulta" : "leitura de QR"}</button>}
         {loading && (
           <div className="loading-state" data-testid="scan-loading">
             <RefreshCw className="spin" size={22} />
-            <span>Conferindo sinais locais e bases de ameaças…</span>
+            <span>{scanMessage}</span>
           </div>
         )}
 
