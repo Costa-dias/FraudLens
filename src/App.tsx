@@ -270,9 +270,13 @@ export default function App() {
       if (request.current !== controller || controller.signal.aborted) return;
       const message = axios.isAxiosError(error) && typeof error.response?.data?.detail === "string"
         ? error.response.data.detail
-        : axios.isAxiosError(error) && error.code === "ECONNABORTED"
-          ? "O servidor demorou para responder. Aguarde um momento e tente novamente; nenhum resultado foi gerado."
-          : "Não foi possível conectar ao serviço de análise. Confira sua conexão e tente novamente.";
+        : axios.isAxiosError(error) && (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT")
+          ? "O servidor de análise não respondeu dentro do prazo. Ele pode estar iniciando ou temporariamente indisponível. Nenhum resultado foi gerado. Tente novamente em instantes."
+          : axios.isAxiosError(error) && [502, 503, 504].includes(error.response?.status ?? 0)
+            ? "O servidor de análise está temporariamente indisponível. Não foi possível verificar a segurança do link. Tente novamente mais tarde."
+            : axios.isAxiosError(error) && error.code === "ERR_NETWORK"
+              ? "Não foi possível alcançar a API. Verifique sua conexão e tente novamente. Se outros sites funcionam, o serviço pode estar indisponível. Nenhuma análise foi concluída."
+              : "A análise não pôde ser concluída. Confira sua conexão e tente novamente; não considere o link seguro sem uma verificação.";
       setScanError(message);
       toast.error(message);
     } finally {
