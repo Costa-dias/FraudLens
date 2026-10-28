@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import jsQR from "jsqr";
+import { readQr } from "./lib/readQr";
 import toast, { Toaster } from "react-hot-toast";
 import {
   ArrowRight,
@@ -144,6 +144,12 @@ export default function App() {
   const [details, setDetails] = useState(false);
   const [history, setHistory] = useState<ScanResult[]>([]);
 
+  const request = useRef<AbortController | null>(null);
+  const mediaRequest = useRef<AbortController | null>(null);
+  const [reading, setReading] = useState(false);
+  const cancel = () => { request.current?.abort(); request.current = null; setLoading(false); mediaRequest.current?.abort(); mediaRequest.current = null; setReading(false); };
+  useEffect(() => () => { request.current?.abort(); mediaRequest.current?.abort(); }, []);
+
   const loadHistory = () => {
     try {
       const raw = localStorage.getItem("fraudlens_history");
@@ -181,67 +187,26 @@ export default function App() {
     loadHistory();
   }, []);
 
-  const readQr = (selected: File): Promise<string | null> =>
-    new Promise(resolve => {
-      const objectUrl = URL.createObjectURL(selected);
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
-      if (!context) return resolve(null);
-      const finish = (value: string | null) => {
-        URL.revokeObjectURL(objectUrl);
-        resolve(value);
-      };
-      const decodeFrame = (source: HTMLVideoElement | HTMLImageElement) => {
-        const vw = (source as HTMLVideoElement).videoWidth || (source as HTMLImageElement).naturalWidth;
-        const vh = (source as HTMLVideoElement).videoHeight || (source as HTMLImageElement).naturalHeight;
-        canvas.width = vw;
-        canvas.height = vh;
-        context.drawImage(source, 0, 0, canvas.width, canvas.height);
-        const code = jsQR(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
-        finish(code?.data || null);
-      };
-      if (selected.type.startsWith("image/")) {
-        const image = new Image();
-        image.onload = () => {
-          const scale = Math.min(1, 1400 / image.width);
-          canvas.width = image.width * scale;
-          canvas.height = image.height * scale;
-          context.drawImage(image, 0, 0, canvas.width, canvas.height);
-          const code = jsQR(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
-          finish(code?.data || null);
-        };
-        image.onerror = () => finish(null);
-        image.src = objectUrl;
-      } else {
-        const video = document.createElement("video");
-        video.muted = true;
-        video.playsInline = true;
-        video.preload = "auto";
-        video.onloadeddata = () => {
-          if (video.duration > 0.1) video.currentTime = 0.1;
-          else decodeFrame(video);
-        };
-        video.onseeked = () => decodeFrame(video);
-        video.onerror = () => finish(null);
-        video.src = objectUrl;
-      }
-    });
-
   const handleFile = async (selected?: File) => {
     if (!selected) return;
     if (selected.size > MAX_FILE_BYTES) {
       toast.error("Arquivo grande demais (máximo 25 MB).");
       return;
     }
+    mediaRequest.current?.abort();
+    const controller = new AbortController(); mediaRequest.current = controller;
+    setReading(true);
     setFile(selected);
     setQrMessage(null);
     setQrValue(null);
-    const decoded = await readQr(selected);
+    const decoded = await readQr(selected, controller.signal, message => { if (!controller.signal.aborted) setQrMessage(message); });
+    if (controller.signal.aborted) return;
+    setReading(false);
     if (decoded) {
       setQrValue(decoded);
       setQrMessage(`QR encontrado: ${decoded}`);
     } else {
-      setQrMessage("Nenhum QR Code legível. Prints e vídeos não são analisados automaticamente: copie o link que aparece na mensagem e cole na aba «Link / URL».");
+      setQrMessage("Nenhum QR legível nas amostras examinadas (até 8 quadros no vídeo). Prints e vídeos não são analisados automaticamente: copie o link que aparece na mensagem e cole na aba «Link / URL».");
     }
   };
 
@@ -250,6 +215,8 @@ export default function App() {
     // Prints e vídeos são lidos só no navegador (QR Code) e nunca são enviados ao servidor.
     if (mode !== "url") return;
 
+    request.current?.abort();
+    const controller = new AbortController(); request.current = controller;
     setLoading(true);
     setResult(null);
     setDetails(false);
@@ -263,9 +230,10 @@ export default function App() {
       const response = await axios.post(
         `${API}/scan/url`,
         { url: formattedUrl },
-        { headers: { "Content-Type": "application/json" } }
+        { headers: { "Content-Type": "application/json" }, timeout: 30000, signal: controller.signal }
       );
 
+      if (request.current !== controller || controller.signal.aborted) return;
       const raw = response.data?.scan;
 
       // Sem veredito válido, não inventamos resultado: um erro é melhor que um "baixo risco" falso.
@@ -295,14 +263,14 @@ export default function App() {
       saveHistory(normalizedResult);
       toast.success("Análise concluída");
     } catch (error) {
-      console.error("Erro na requisição:", error);
+      if (request.current !== controller || controller.signal.aborted) return;
       if (axios.isAxiosError(error)) {
-        toast.error(error.response?.data?.detail || "Não foi possível concluir a análise");
+        toast.error(error.code === "ECONNABORTED" ? "A consulta excedeu 30 segundos. Tente novamente." : typeof error.response?.data?.detail === "string" ? error.response.data.detail : "Não foi possível concluir a análise");
       } else {
         toast.error("Não foi possível concluir a análise");
       }
     } finally {
-      setLoading(false);
+      if (request.current === controller) { setLoading(false); request.current = null; }
     }
   };
 
@@ -362,6 +330,7 @@ export default function App() {
   };
 
   const choose = (next: "url" | "screenshot" | "video") => {
+    cancel();
     setMode(next);
     setFile(null);
     setResult(null);
@@ -473,6 +442,7 @@ export default function App() {
           </div>
         </section>
 
+        {(loading || reading) && <button type="button" onClick={cancel}>Cancelar {loading ? "consulta (limite de 30 segundos)" : "leitura de QR"}</button>}
         {loading && (
           <div className="loading-state" data-testid="scan-loading">
             <RefreshCw className="spin" size={22} />

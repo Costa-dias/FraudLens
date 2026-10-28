@@ -257,3 +257,16 @@ def test_stale_report_cannot_produce_safe(monkeypatch):
 def test_test_site_names_in_query_are_not_threat_evidence():
     _, _, score = main.analyze_url_structure('https://example.com/help?topic=phishing.html&site=testsafebrowsing')
     assert score == 0
+
+@pytest.mark.parametrize('url', ['https://[invalid]/', 'https://example.com:abc/', 'https://example.com:99999/', 'https://example.com:0/'])
+def test_malformed_urls_return_client_error(url):
+    response = client.post('/api/scan/url', json={'url': url})
+    assert response.status_code == 400
+
+@pytest.mark.parametrize('payload', [None, [], 'html', {'matches': 'wrong'}, {'matches': [1]}])
+def test_invalid_google_contract(payload):
+    assert main.validate_source_payload(payload, 'google') is None
+
+@pytest.mark.parametrize('payload', [[], {'data': []}, {'data': {'attributes': []}}, {'data': {'attributes': {'last_analysis_stats': {'malicious': '1'}}}}])
+def test_invalid_vt_contract(payload):
+    assert main.validate_source_payload(payload, 'vt') is None
