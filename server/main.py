@@ -102,7 +102,14 @@ def validate_target_url(raw: str) -> str:
         raise HTTPException(400, "URL inválida ou muito longa.")
     if URL_DANGEROUS_RE.search(raw):
         raise HTTPException(400, "URL contém caracteres não permitidos.")
-    parsed = urlparse(raw)
+    try:
+        parsed = urlparse(raw)
+        port = parsed.port
+        host = parsed.hostname
+        if port is not None and not 1 <= port <= 65535:
+            raise ValueError('port')
+    except ValueError:
+        raise HTTPException(400, "URL malformada. Confira o domínio e a porta.")
     if parsed.scheme not in ALLOWED_SCHEMES:
         raise HTTPException(400, "Esquema não suportado. Use HTTP ou HTTPS.")
     host = parsed.hostname or ""
@@ -176,14 +183,33 @@ async def query_google_safe_browsing(target_url: str) -> dict | None:
                 json=payload,
             )
             if resp.status_code == 200:
-                return resp.json()
+                return validate_source_payload(resp.json(), "google")
             else:
                 safe_log("google_api_error", status=resp.status_code)
-    except (httpx.TimeoutException, httpx.HTTPError) as exc:
+    except (httpx.TimeoutException, httpx.HTTPError, ValueError, TypeError) as exc:
         safe_log("google_timeout", error=type(exc).__name__)
         return None
 
     return None
+
+
+def validate_source_payload(value, source):
+    if not isinstance(value, dict):
+        return None
+    if source == "google":
+        matches = value.get("matches", [])
+        return value if isinstance(matches, list) and all(isinstance(m, dict) for m in matches) else None
+    data = value.get("data")
+    attrs = data.get("attributes") if isinstance(data, dict) else None
+    stats = attrs.get("last_analysis_stats") if isinstance(attrs, dict) else None
+    if not isinstance(stats, dict) or not stats:
+        return None
+    if any(isinstance(n, bool) or not isinstance(n, int) or n < 0 for n in stats.values()):
+        return None
+    stamp = attrs.get("last_analysis_date")
+    if stamp is not None and (isinstance(stamp, bool) or not isinstance(stamp, (int, float)) or not 0 < stamp <= time.time()):
+        return None
+    return value
 
 
 async def query_virustotal(target_url: str) -> dict | None:
@@ -200,13 +226,13 @@ async def query_virustotal(target_url: str) -> dict | None:
                 headers=headers,
             )
             if resp.status_code == 200:
-                return resp.json()
+                return validate_source_payload(resp.json(), "vt")
             elif resp.status_code == 404:
                 # URL não registrada no banco do VirusTotal (0 detecções prévias)
                 return {"data": {"attributes": {"last_analysis_stats": {"malicious": 0}}}, "status": "not_found"}
             else:
                 safe_log("vt_api_error", status=resp.status_code)
-    except (httpx.TimeoutException, httpx.HTTPError) as exc:
+    except (httpx.TimeoutException, httpx.HTTPError, ValueError, TypeError) as exc:
         safe_log("vt_timeout", error=type(exc).__name__)
         return None
 
