@@ -1,5 +1,11 @@
 # FraudLens — segurança antes do clique
 
+**Versão 1.3.0 · atualizado em 30/10/2026**
+
+Evolução incremental da linha 1.x: cobertura e risco separados, resultado inconclusivo, sinais explicados, cancelamento e tratamento de indisponibilidade da API.
+
+[Histórico e critérios da versão](RELEASES.md).
+
 Verificador de URLs com sinais explicados, API FastAPI e interface React/TypeScript. Imagens e vídeos são usados apenas para extração local de QR Codes; não são enviados ao servidor e não passam por análise completa da mensagem.
 
 - [Aplicação](https://fraudlens-code.onrender.com/)
