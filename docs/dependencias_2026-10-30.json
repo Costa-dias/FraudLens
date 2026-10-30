@@ -1,0 +1,31 @@
+{
+  "beforeVersion": "1.3.0",
+  "afterVersion": "1.3.1",
+  "directChanges": [
+    {
+      "library": "axios",
+      "before": "1.20.0",
+      "after": "1.21.0",
+      "purpose": "Cliente HTTP: envia e recebe requisições das APIs."
+    },
+    {
+      "library": "autoprefixer",
+      "before": "10.6.1",
+      "after": "10.6.2",
+      "purpose": "Ajusta CSS para compatibilidade entre navegadores."
+    },
+    {
+      "library": "postcss",
+      "before": "8.5.31",
+      "after": "8.5.32",
+      "purpose": "Processamento do CSS no build."
+    },
+    {
+      "library": "typescript-eslint",
+      "before": "8.72.0",
+      "after": "8.72.1",
+      "purpose": "Verifica código TypeScript e regras de qualidade."
+    }
+  ],
+  "removedDirect": []
+}

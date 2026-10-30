@@ -1,6 +1,6 @@
 # FraudLens — segurança antes do clique
 
-**Versão 1.3.0 · atualizado em 30/10/2026**
+**Versão 1.3.1 · atualizado em 30/10/2026**
 
 Evolução incremental da linha 1.x: cobertura e risco separados, resultado inconclusivo, sinais explicados, cancelamento e tratamento de indisponibilidade da API.
 
@@ -56,3 +56,6 @@ Configure `VITE_API_URL` no frontend e `GOOGLE_SAFE_BROWSING_API_KEY`, `VIRUSTOT
 ## Publicação
 
 Frontend e API precisam ser atualizados juntos para o novo estado INCONCLUSIVE e os metadados de cobertura. O frontend também aceita o formato anterior. Validar build não comprova o estado das chaves ou das cotas em produção.
+
+
+[Relatório detalhado da manutenção](docs/ATUALIZACOES_2026-10-30.md).

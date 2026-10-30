@@ -1,6 +1,6 @@
 # Versão do produto
 
-**Versão 1.3.0 · atualizado em 30/10/2026**
+**Versão 1.3.1 · atualizado em 30/10/2026**
 
 ## Marco atual
 
@@ -28,3 +28,9 @@ Em cada publicação, manter alinhados `package.json`, o lockfile quando aplicá
 A fonte do rodapé é `src/release.ts`. Ela é incorporada ao build; uma aba antiga continua mostrando a versão do código carregado, sem consultar uma versão mais recente pela rede.
 
 A API FastAPI mantém sua versão de contrato 1.2.0; o produto completo passa a 1.3.0. Não houve mudança do contrato nesta publicação.
+
+## Manutenção 1.3.1 — 30/10/2026
+
+Axios, CSS e backend FastAPI/Starlette/Pydantic atualizados com dependências Python fixadas.
+
+Detalhes técnicos e validação em `docs/ATUALIZACOES_2026-10-30.md`.
