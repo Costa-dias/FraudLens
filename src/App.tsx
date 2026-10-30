@@ -1,3 +1,4 @@
+import { ReleaseVersion } from './ReleaseVersion';
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { requestScan } from "./lib/scanRequest";
@@ -623,6 +624,7 @@ export default function App() {
       <footer>
         <span>© 2026 FraudLens — Created by Costa-Dias</span>
         <span>Uma análise limpa não é garantia absoluta. Na dúvida, não clique.</span>
+        <ReleaseVersion />
       </footer>
 
       {/* Alerta flutuante com o mesmo design system do Radar */}
