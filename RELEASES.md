@@ -1,6 +1,6 @@
 # Versão do produto
 
-**Versão 1.3.1 · atualizado em 30/10/2026**
+**Versão 1.3.2 · atualizado em 31/10/2026**
 
 ## Marco atual
 
@@ -34,3 +34,7 @@ A API FastAPI mantém sua versão de contrato 1.2.0; o produto completo passa a 
 Axios, CSS e backend FastAPI/Starlette/Pydantic atualizados com dependências Python fixadas.
 
 Detalhes técnicos e validação em `docs/ATUALIZACOES_2026-10-30.md`.
+
+## Manutenção 1.3.2 — 31/10/2026
+
+Minimatch 10.2.6 → 11.0.1 apenas na cadeia de @typescript-eslint/typescript-estree. A versão 3.1.5 das ferramentas de lint permanece para preservar sua API. Veja docs/SECURITY_REVIEW_2026-10-31.md para validação e pendências.
