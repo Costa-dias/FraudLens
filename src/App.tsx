@@ -389,17 +389,19 @@ export default function App() {
     <div className="app-shell">
       <Toaster position="top-right" toastOptions={{ style: { background: "#111a2e", color: "#e8edf7", border: "1px solid #243250" } }} />
       <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">
-            <ShieldCheck size={22} />
-          </span>
-          <span>
-            <b>FraudLens</b>
-            <small>segurança antes do clique</small>
-          </span>
-        </div>
-        <div className="privacy">
-          <Lock size={14} /> uso anônimo
+        <div className="topbar-inner">
+          <div className="brand">
+            <span className="brand-mark">
+              <ShieldCheck size={22} />
+            </span>
+            <span>
+              <b>FraudLens</b>
+              <small>segurança antes do clique</small>
+            </span>
+          </div>
+          <div className="privacy">
+            <Lock size={14} /> uso anônimo
+          </div>
         </div>
       </header>
 
