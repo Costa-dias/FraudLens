@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { requestScan } from "./lib/scanRequest";
 import { readQr } from "./lib/readQr";
-import { explainDomain } from "./lib/domainEvidence";
+import { explainDomain, safeDisplayUrl } from "./lib/domainEvidence";
 import toast, { Toaster } from "react-hot-toast";
 import {
   ArrowRight,
@@ -87,6 +87,28 @@ function VerdictBadge({ value }: { value: string }) {
     <span className={`verdict ${meta.cls}`}>
       <Icon size={14} /> {meta.label}
     </span>
+  );
+}
+
+const SOURCE_STATUS: Record<string, { label: string; cls: string }> = {
+  detected: { label: "ameaça detectada", cls: "detected" },
+  detected_stale: { label: "detecção em relatório antigo", cls: "stale" },
+  no_match: { label: "sem correspondência", cls: "clear" },
+  no_record: { label: "URL sem registro", cls: "unknown" },
+  stale: { label: "relatório antigo ou sem data", cls: "stale" },
+  unavailable: { label: "indisponível", cls: "unknown" },
+  not_configured: { label: "não configurada", cls: "unknown" },
+  unknown: { label: "estado não informado", cls: "unknown" },
+};
+
+function SourceStatuses({ checks }: { checks: Record<string, string> }) {
+  return (
+    <div className="source-checks" data-testid="external-checks" aria-label="Resultado de cada fonte">
+      {Object.entries(checks).map(([name, status]) => {
+        const meta = SOURCE_STATUS[status] || SOURCE_STATUS.unknown;
+        return <div className={`source-check ${meta.cls}`} key={name}><strong>{name === "google" ? "Google Safe Browsing" : name === "virustotal" ? "VirusTotal" : name}</strong><span>{meta.label}</span></div>;
+      })}
+    </div>
   );
 }
 
@@ -351,6 +373,14 @@ export default function App() {
     setQrValue(null);
   };
 
+  const prepareTestUrl = (target: string) => {
+    setUrl(target);
+    setClaimedBrand("");
+    setResult(null);
+    setScanError("");
+    setDetails(false);
+  };
+
   const domainEvidence = result ? explainDomain(result.target, claimedBrand) : null;
 
   return (
@@ -408,12 +438,25 @@ export default function App() {
                       {loading ? <RefreshCw className="spin" size={18} /> : <>Verificar agora <ArrowRight size={18} /></>}
                     </button>
                   </div>
-                  <label className="brand-field">
-                    <span>Qual marca o link diz representar? <small>opcional</small></span>
-                    <input value={claimedBrand} onChange={event => setClaimedBrand(event.target.value)} placeholder="ex.: Vivo, banco ou loja" data-testid="claimed-brand-input" />
-                    <small>Essa comparação acontece apenas neste aparelho e não altera a pontuação automática.</small>
-                  </label>
+                  <details className="brand-field-disclosure">
+                    <summary>Comparar com a marca alegada <small>opcional</small></summary>
+                    <label className="brand-field">
+                      <span>Qual marca o link diz representar?</span>
+                      <input value={claimedBrand} onChange={event => setClaimedBrand(event.target.value)} placeholder="ex.: Vivo, banco ou loja" data-testid="claimed-brand-input" />
+                      <small>Comparação feita apenas neste aparelho; não altera a pontuação.</small>
+                    </label>
+                  </details>
                   <div className="privacy-notice" data-testid="url-privacy-notice"><Lock size={14} /> Ao verificar, o endereço é enviado à API e às bases externas configuradas. Não use links privados ou com códigos de acesso.</div>
+                  <details className="test-lab" data-testid="test-lab">
+                    <summary>Testar o verificador</summary>
+                    <p>Use páginas oficiais e inofensivas de simulação. O FraudLens consulta as fontes; não abre os endereços nem baixa arquivos.</p>
+                    <div className="test-links">
+                      <button type="button" onClick={() => prepareTestUrl("https://testsafebrowsing.appspot.com/s/malware.html")}>Google · teste de malware</button>
+                      <button type="button" onClick={() => prepareTestUrl("https://testsafebrowsing.appspot.com/s/phishing.html")}>Google · teste de phishing</button>
+                      <button type="button" onClick={() => prepareTestUrl("https://www.amtso.org/check-desktop-phishing-page/")}>AMTSO · página de teste de phishing</button>
+                    </div>
+                    <small>Os testes da AMTSO também verificam funções do antivírus durante a navegação ou o download. A consulta de reputação do FraudLens não substitui esses testes.</small>
+                  </details>
                 </>
               ) : (
                 <>
@@ -491,7 +534,7 @@ export default function App() {
               <div className="result-top">
                 <div className="target">
                   <span>ALVO ANALISADO</span>
-                  <code data-testid="result-target">{result.target}</code>
+                  <code data-testid="result-target">{safeDisplayUrl(result.target)}</code>
                 </div>
                 <VerdictBadge value={result.verdict} />
               </div>
@@ -509,12 +552,17 @@ export default function App() {
                       <span>Estrutura do link, separada do resultado das bases de reputação</span>
                     </div>
                   </div>
-                  <dl className="domain-grid">
+                  <div className="url-anatomy" aria-label="Partes do endereço">
+                    <span className="url-scheme">{domainEvidence.scheme}://</span>
+                    {domainEvidence.subdomains.map((part, index) => <span className="url-subdomain" key={`${part}-${index}`} title="Subdomínio">{part}.</span>)}
+                    <strong className="url-base-domain" title="Domínio base provável">{domainEvidence.baseDomain}</strong>
+                    <span className="url-path">{domainEvidence.path}</span>
+                  </div>
+                  <div className="domain-grid">
                     <div><dt>Domínio base provável</dt><dd><code>{domainEvidence.baseDomain}</code></dd></div>
                     <div><dt>Subdomínios</dt><dd><code>{domainEvidence.subdomains.length ? domainEvidence.subdomains.join(" · ") : "nenhum"}</code></dd></div>
-                    <div><dt>Caminho</dt><dd><code>{domainEvidence.path}</code></dd></div>
                     <div><dt>Parâmetros depois de ?</dt><dd>{domainEvidence.hasQuery ? "sim (valores ocultos)" : "não"}</dd></div>
-                  </dl>
+                  </div>
                   {domainEvidence.brandNote && <p className={`brand-comparison ${domainEvidence.brandNote.includes("aparece em um subdomínio") ? "attention" : ""}`} data-testid="brand-comparison">{domainEvidence.brandNote}</p>}
                   <p className="domain-disclaimer">O domínio base é uma estimativa baseada em sufixos conhecidos. Esta leitura não confirma quem controla o site, não abre a página e não inspeciona logs ou certificado.</p>
                 </div>
@@ -542,13 +590,7 @@ export default function App() {
                 </div>
               )}
 
-              {result.checks && (
-                <p className="panel-note" data-testid="external-checks">
-                  {Object.entries(result.checks).map(([name, status]) =>
-                    `${name === "google" ? "Google" : "VirusTotal"}: ${status === "ok" ? "respondeu" : status === "not_found" ? "sem registro da URL" : status === "not_configured" ? "não configurado" : status === "stale" ? "análise antiga ou sem data" : "indisponível"}`
-                  ).join(" · ")}
-                </p>
-              )}
+              {result.checks && <SourceStatuses checks={result.checks} />}
 
               <p className="panel-note">
                 Cobertura: {result.coverage === 'complete' ? 'completa nas bases configuradas' : result.coverage === 'partial' ? 'parcial — resultado limitado' : 'não informada nesta análise'}.
@@ -639,7 +681,7 @@ export default function App() {
                 data-testid={`local-scan-${item.id}`}
               >
                 <span className={`mini-dot ${item.verdict === "SAFE" ? "safe" : item.verdict === "DANGEROUS" ? "danger" : "warn"}`} />
-                <code>{item.target}</code>
+                <code>{safeDisplayUrl(item.target)}</code>
                 <ArrowRight size={15} />
               </button>
             ))}
@@ -662,10 +704,9 @@ export default function App() {
 
 const styles = {
   container: {
-    position: "fixed" as const,
-    bottom: "24px",
-    right: "16px",
-    zIndex: 9999,
+    position: "relative" as const,
+    margin: "24px auto 0",
+    zIndex: 1,
     width: "min(350px, calc(100vw - 32px))",
     borderRadius: "14px",
     background: "#0c0d12",
