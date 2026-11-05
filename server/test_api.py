@@ -73,13 +73,86 @@ def test_virustotal_not_found_is_not_listed_as_a_clean_check(monkeypatch):
 
 def test_virustotal_detection_raises_the_verdict(monkeypatch):
     async def vt_com_deteccao(_url):
-        return {"data": {"attributes": {"last_analysis_stats": {"malicious": 4}}}}
+        return {"data": {"attributes": {
+            "last_analysis_stats": {"malicious": 4},
+            "last_analysis_date": main.time.time(),
+        }}}
 
     monkeypatch.setattr(main, "VT_KEY", "chave-de-teste")
     monkeypatch.setattr(main, "query_virustotal", vt_com_deteccao)
     scan = client.post("/api/scan/url", json={"url": "https://example.com"}).json()["scan"]
     assert scan["verdict"] == "DANGEROUS"
     assert "VirusTotal" in scan["sources_checked"]
+    assert scan["checks"]["virustotal"] == "detected"
+
+
+def test_google_source_status_marks_a_match(monkeypatch):
+    async def google_com_ameaca(_url):
+        return {"matches": [{"threatType": "SOCIAL_ENGINEERING"}]}
+
+    monkeypatch.setattr(main, "GOOGLE_KEY", "chave-de-teste")
+    monkeypatch.setattr(main, "query_google_safe_browsing", google_com_ameaca)
+    scan = client.post("/api/scan/url", json={"url": "https://example.com"}).json()["scan"]
+    assert scan["checks"]["google"] == "detected"
+
+
+def test_source_statuses_distinguish_clean_from_detected(monkeypatch):
+    async def google_sem_match(_url):
+        return {"matches": []}
+
+    async def vt_sem_deteccao(_url):
+        return {"data": {"attributes": {
+            "last_analysis_stats": {"malicious": 0, "harmless": 10},
+            "last_analysis_date": main.time.time(),
+        }}}
+
+    monkeypatch.setattr(main, "GOOGLE_KEY", "chave-de-teste")
+    monkeypatch.setattr(main, "VT_KEY", "chave-de-teste")
+    monkeypatch.setattr(main, "query_google_safe_browsing", google_sem_match)
+    monkeypatch.setattr(main, "query_virustotal", vt_sem_deteccao)
+    scan = client.post("/api/scan/url", json={"url": "https://example.com"}).json()["scan"]
+
+    assert scan["checks"] == {"google": "no_match", "virustotal": "no_match"}
+    assert scan["coverage"] == "complete"
+
+
+def test_source_statuses_mark_stale_and_unlisted_results(monkeypatch):
+    async def google_sem_match(_url):
+        return {"matches": []}
+
+    async def vt_antigo(_url):
+        return {"data": {"attributes": {
+            "last_analysis_stats": {"malicious": 0, "harmless": 10},
+            "last_analysis_date": main.time.time() - 10 * main.MAX_ANALYSIS_AGE_SECONDS,
+        }}}
+
+    monkeypatch.setattr(main, "GOOGLE_KEY", "chave-de-teste")
+    monkeypatch.setattr(main, "VT_KEY", "chave-de-teste")
+    monkeypatch.setattr(main, "query_google_safe_browsing", google_sem_match)
+    monkeypatch.setattr(main, "query_virustotal", vt_antigo)
+    scan = client.post("/api/scan/url", json={"url": "https://example.com"}).json()["scan"]
+    assert scan["checks"] == {"google": "no_match", "virustotal": "stale"}
+    assert scan["coverage"] == "partial"
+
+    async def vt_nao_listado(_url):
+        return {"data": {"attributes": {"last_analysis_stats": {"malicious": 0}}}, "status": "not_found"}
+
+    monkeypatch.setattr(main, "query_virustotal", vt_nao_listado)
+    scan = client.post("/api/scan/url", json={"url": "https://example.com"}).json()["scan"]
+    assert scan["checks"]["virustotal"] == "no_record"
+    assert scan["coverage"] == "partial"
+
+    async def vt_deteccao_antiga(_url):
+        return {"data": {"attributes": {
+            "last_analysis_stats": {"malicious": 1, "harmless": 9},
+            "last_analysis_date": main.time.time() - 10 * main.MAX_ANALYSIS_AGE_SECONDS,
+        }}}
+
+    monkeypatch.setattr(main, "query_virustotal", vt_deteccao_antiga)
+    scan = client.post("/api/scan/url", json={"url": "https://example.com"}).json()["scan"]
+    assert scan["checks"]["virustotal"] == "detected_stale"
+    assert scan["verdict"] == "DANGEROUS"
+    assert scan["coverage"] == "partial"
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +272,7 @@ def test_score_is_capped_and_external_statuses_are_visible(monkeypatch):
     scan = client.post('/api/scan/url', json={'url': 'https://example.com'}).json()['scan']
     assert scan['confidence_score'] == 100
     assert scan['verdict'] == 'DANGEROUS'
-    assert scan['checks'] == {'google': 'ok', 'virustotal': 'ok'}
+    assert scan['checks'] == {'google': 'detected', 'virustotal': 'detected'}
 
 
 def test_safe_requires_both_external_checks(monkeypatch):
