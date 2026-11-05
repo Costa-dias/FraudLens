@@ -47,14 +47,14 @@
 
 @layer components {
   .app-shell {
-    width: min(1320px, calc(100% - 48px));
-    margin: 24px auto;
-    padding: 0 clamp(28px, 4vw, 56px) 44px;
-    min-height: calc(100svh - 48px);
-    border: 1px solid rgba(76, 100, 145, 0.34);
-    border-radius: 28px;
-    background: linear-gradient(160deg, rgba(17, 26, 46, 0.8), rgba(10, 15, 28, 0.92) 58%);
-    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.38), 0 0 70px rgba(47, 107, 255, 0.055);
+    width: min(1600px, calc(100% - 64px));
+    margin: 20px auto;
+    padding: 0 clamp(28px, 4vw, 64px) 48px;
+    min-height: calc(100svh - 40px);
+    border: 1px solid rgba(92, 122, 177, 0.48);
+    border-radius: 26px;
+    background: linear-gradient(160deg, rgba(20, 31, 54, 0.96), rgba(12, 19, 34, 0.98) 58%);
+    box-shadow: 0 0 0 1px rgba(180, 202, 244, 0.035), 0 28px 90px rgba(0, 0, 0, 0.4), 0 0 70px rgba(47, 107, 255, 0.07);
     isolation: isolate;
   }
 
