@@ -1,6 +1,17 @@
 # Versão do produto
 
-**Versão 1.3.2 · atualizado em 31/10/2026**
+**Versão 1.4.0 · atualizado em 05/11/2026**
+
+## Versão 1.4.0 — 05/11/2026 (branch de validação)
+
+- Relatório visual explica domínio base provável, subdomínios, caminho e presença de parâmetros sem exibir valores sensíveis.
+- Campo opcional compara localmente a marca alegada com o domínio; sinaliza quando ela aparece somente em subdomínio.
+- Aviso de privacidade aparece antes da consulta e esclarece que a URL segue para a API e bases externas configuradas.
+- Não abre o destino, não consulta logs/certificados e não altera a pontuação automática. A API não mudou; o contrato continua 1.2.0.
+
+Esta versão está em branch separada para validação e não substitui a produção até ser aprovada.
+
+## Versão publicada anterior: 1.3.2 — 31/10/2026
 
 ## Marco atual
 
