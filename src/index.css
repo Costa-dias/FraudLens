@@ -2,18 +2,18 @@
 
 @layer base {
   :root {
-    --fl-bg: #0a0f1c;
-    --fl-surface: #111a2e;
-    --fl-surface-2: #18233b;
-    --fl-border: #243250;
-    --fl-text: #e8edf7;
-    --fl-muted: #8a99b8;
-    --fl-primary: #2f6bff;
-    --fl-primary-hover: #4d82ff;
-    --fl-accent: #18c5b3;
+    --fl-bg: #100b17;
+    --fl-surface: #1b1424;
+    --fl-surface-2: #251a30;
+    --fl-border: #3a2a48;
+    --fl-text: #f3edf6;
+    --fl-muted: #aa9bb7;
+    --fl-primary: #8a4d9e;
+    --fl-primary-hover: #aa63b5;
+    --fl-accent: #dc6d9e;
     --fl-success: #22c55e;
-    --fl-warning: #f5a524;
-    --fl-danger: #f43f5e;
+    --fl-warning: #e8aa58;
+    --fl-danger: #ef647c;
   }
 
   * {
@@ -29,8 +29,8 @@
     min-height: 100svh;
     overflow-x: hidden;
     background:
-      radial-gradient(1200px 600px at 80% -10%, rgba(47, 107, 255, 0.12), transparent 60%),
-      radial-gradient(900px 500px at -10% 20%, rgba(24, 197, 179, 0.08), transparent 55%),
+      radial-gradient(1200px 600px at 80% -10%, rgba(138, 77, 158, 0.16), transparent 60%),
+      radial-gradient(900px 500px at -10% 20%, rgba(220, 109, 158, 0.08), transparent 55%),
       var(--fl-bg);
     color: var(--fl-text);
     font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -51,10 +51,10 @@
     margin: 20px auto;
     padding: 0 clamp(28px, 4vw, 64px) 48px;
     min-height: calc(100svh - 40px);
-    border: 1px solid rgba(92, 122, 177, 0.48);
+    border: 1px solid rgba(121, 83, 135, 0.48);
     border-radius: 26px;
-    background: linear-gradient(160deg, rgba(20, 31, 54, 0.96), rgba(12, 19, 34, 0.98) 58%);
-    box-shadow: 0 0 0 1px rgba(180, 202, 244, 0.035), 0 28px 90px rgba(0, 0, 0, 0.4), 0 0 70px rgba(47, 107, 255, 0.07);
+    background: linear-gradient(160deg, rgba(32, 22, 42, 0.97), rgba(16, 11, 23, 0.99) 58%);
+    box-shadow: 0 0 0 1px rgba(220, 194, 232, 0.035), 0 28px 90px rgba(0, 0, 0, 0.4), 0 0 70px rgba(138, 77, 158, 0.1);
     isolation: isolate;
   }
 
@@ -67,7 +67,7 @@
     top: 0;
     z-index: 20;
     backdrop-filter: blur(12px);
-    background: rgba(10, 15, 28, 0.7);
+    background: rgba(13, 9, 20, 0.7);
     border-bottom: 1px solid rgba(76, 100, 145, 0.26);
   }
 
@@ -85,7 +85,7 @@
     border-radius: 12px;
     background: linear-gradient(135deg, var(--fl-primary), var(--fl-accent));
     color: #fff;
-    box-shadow: 0 8px 24px rgba(47, 107, 255, 0.35);
+    box-shadow: 0 8px 24px rgba(138, 77, 158, 0.35);
   }
 
   .brand b {
@@ -135,14 +135,14 @@
     height: 8px;
     border-radius: 999px;
     background: var(--fl-accent);
-    box-shadow: 0 0 0 0 rgba(24, 197, 179, 0.6);
+    box-shadow: 0 0 0 0 rgba(220, 109, 158, 0.6);
     animation: pulse 2s infinite;
   }
 
   @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(24, 197, 179, 0.55); }
-    70% { box-shadow: 0 0 0 10px rgba(24, 197, 179, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(24, 197, 179, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(220, 109, 158, 0.55); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 109, 158, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 109, 158, 0); }
   }
 
   .hero h1 {
@@ -178,7 +178,7 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
-    background: rgba(10, 15, 28, 0.55);
+    background: rgba(13, 9, 20, 0.55);
     padding: 6px;
     border-radius: 14px;
     margin-bottom: 16px;
@@ -205,7 +205,7 @@
   }
 
   .mode-tabs button.active {
-    background: linear-gradient(135deg, rgba(47, 107, 255, 0.18), rgba(24, 197, 179, 0.12));
+    background: linear-gradient(135deg, rgba(138, 77, 158, 0.18), rgba(220, 109, 158, 0.12));
     color: var(--fl-text);
     box-shadow: inset 0 0 0 1px var(--fl-border);
   }
@@ -214,7 +214,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    background: rgba(10, 15, 28, 0.6);
+    background: rgba(13, 9, 20, 0.6);
     border: 1px solid var(--fl-border);
     border-radius: 12px;
     padding: 10px 12px;
@@ -274,7 +274,7 @@
 
   .brand-field input {
     width: 100%;
-    background: rgba(10, 15, 28, 0.6);
+    background: rgba(13, 9, 20, 0.6);
     border: 1px solid var(--fl-border);
     border-radius: 10px;
     color: var(--fl-text);
@@ -299,7 +299,7 @@
     margin-top: 14px;
     border: 1px solid var(--fl-border);
     border-radius: 11px;
-    background: rgba(10, 15, 28, 0.28);
+    background: rgba(13, 9, 20, 0.28);
   }
 
   .brand-field-disclosure > summary,
@@ -361,13 +361,13 @@
     cursor: pointer;
     color: var(--fl-muted);
     transition: all 0.18s ease;
-    background: rgba(10, 15, 28, 0.4);
+    background: rgba(13, 9, 20, 0.4);
   }
 
   .dropzone:hover {
     border-color: var(--fl-primary);
     color: var(--fl-text);
-    background: rgba(47, 107, 255, 0.06);
+    background: rgba(138, 77, 158, 0.06);
   }
 
   .dropzone strong {
@@ -390,8 +390,8 @@
     margin-top: 12px;
     padding: 10px 12px;
     border-radius: 10px;
-    background: rgba(24, 197, 179, 0.1);
-    border: 1px solid rgba(24, 197, 179, 0.3);
+    background: rgba(220, 109, 158, 0.1);
+    border: 1px solid rgba(220, 109, 158, 0.3);
     color: var(--fl-accent);
     font-size: 0.85rem;
     width: 100%;
@@ -530,7 +530,7 @@
     font-size: 0.88rem;
     word-break: break-all;
     color: var(--fl-text);
-    background: rgba(10, 15, 28, 0.6);
+    background: rgba(13, 9, 20, 0.6);
     padding: 8px 10px;
     border-radius: 8px;
     border: 1px solid var(--fl-border);
@@ -582,9 +582,9 @@
   .domain-card {
     margin: 0 0 18px;
     padding: 16px;
-    border: 1px solid rgba(47, 107, 255, 0.32);
+    border: 1px solid rgba(138, 77, 158, 0.32);
     border-radius: 14px;
-    background: linear-gradient(130deg, rgba(47, 107, 255, 0.09), rgba(24, 197, 179, 0.045));
+    background: linear-gradient(130deg, rgba(138, 77, 158, 0.09), rgba(220, 109, 158, 0.045));
   }
 
   .domain-card-heading {
@@ -619,7 +619,7 @@
     padding: 12px;
     border: 1px solid var(--fl-border);
     border-radius: 10px;
-    background: rgba(10, 15, 28, 0.42);
+    background: rgba(13, 9, 20, 0.42);
     overflow-wrap: anywhere;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.86rem;
@@ -643,7 +643,7 @@
     padding: 11px 12px;
     border: 1px solid var(--fl-border);
     border-radius: 10px;
-    background: rgba(10, 15, 28, 0.36);
+    background: rgba(13, 9, 20, 0.36);
   }
 
   .source-check strong { font-size: 0.75rem; color: var(--fl-text); }
@@ -697,7 +697,7 @@
     gap: 6px;
     padding: 5px 10px;
     border-radius: 999px;
-    background: rgba(10, 15, 28, 0.6);
+    background: rgba(13, 9, 20, 0.6);
     border: 1px solid var(--fl-border);
     color: var(--fl-text);
   }
@@ -719,7 +719,7 @@
     font-weight: 600;
     cursor: pointer;
     border: 1px solid var(--fl-border);
-    background: rgba(10, 15, 28, 0.5);
+    background: rgba(13, 9, 20, 0.5);
     color: var(--fl-text);
     transition: all 0.18s ease;
   }
@@ -727,7 +727,7 @@
   .details-toggle:hover,
   .share-button:hover {
     border-color: var(--fl-primary);
-    background: rgba(47, 107, 255, 0.08);
+    background: rgba(138, 77, 158, 0.08);
   }
 
   .details {
@@ -781,7 +781,7 @@
     margin-top: 16px;
     padding: 14px;
     border-radius: 12px;
-    background: rgba(10, 15, 28, 0.6);
+    background: rgba(13, 9, 20, 0.6);
     border: 1px solid var(--fl-border);
     display: grid;
     gap: 8px;
@@ -890,7 +890,7 @@
 
   .recent-item:hover {
     border-color: var(--fl-primary);
-    background: rgba(47, 107, 255, 0.06);
+    background: rgba(138, 77, 158, 0.06);
   }
 
   .recent-item code {
@@ -940,11 +940,11 @@
       margin: 0 auto;
       padding: 0 max(14px, env(safe-area-inset-right)) calc(22px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
       min-height: 100svh;
-      border: 1px solid rgba(92, 122, 177, 0.42);
+      border: 1px solid rgba(121, 83, 135, 0.42);
       border-radius: 20px;
       background:
-        radial-gradient(900px 380px at 80% -15%, rgba(47, 107, 255, 0.1), transparent 62%),
-        linear-gradient(160deg, rgba(17, 26, 46, 0.76), rgba(10, 15, 28, 0.96));
+        radial-gradient(900px 380px at 80% -15%, rgba(138, 77, 158, 0.1), transparent 62%),
+        linear-gradient(160deg, rgba(27, 20, 36, 0.76), rgba(13, 9, 20, 0.96));
       box-shadow: 0 10px 35px rgba(0, 0, 0, 0.28);
     }
     .topbar {
