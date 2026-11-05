@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { requestScan } from "./lib/scanRequest";
 import { readQr } from "./lib/readQr";
+import { explainDomain } from "./lib/domainEvidence";
 import toast, { Toaster } from "react-hot-toast";
 import {
   ArrowRight,
@@ -138,6 +139,7 @@ function RadarBanner() {
 export default function App() {
   const [mode, setMode] = useState<"url" | "screenshot" | "video">("url");
   const [url, setUrl] = useState("");
+  const [claimedBrand, setClaimedBrand] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [qrMessage, setQrMessage] = useState<string | null>(null);
   const [qrValue, setQrValue] = useState<string | null>(null);
@@ -349,6 +351,8 @@ export default function App() {
     setQrValue(null);
   };
 
+  const domainEvidence = result ? explainDomain(result.target, claimedBrand) : null;
+
   return (
     <div className="app-shell">
       <Toaster position="top-right" toastOptions={{ style: { background: "#111a2e", color: "#e8edf7", border: "1px solid #243250" } }} />
@@ -396,13 +400,21 @@ export default function App() {
             {scanError && <div role="alert" className="muted" style={{ padding: '12px', border: '1px solid #cf6b88', borderRadius: 12 }}><strong>Análise não concluída</strong><p>{scanError}</p><p>O endereço permanece no campo para você tentar novamente.</p></div>}
             <form onSubmit={scan} data-testid="scan-form">
               {mode === "url" ? (
-                <div className="url-row">
-                  <Globe size={19} />
-                  <input value={url} onChange={e => setUrl(e.target.value)} placeholder="ex.: https://site-suspeito.com" data-testid="url-input" />
-                  <button disabled={loading || !url.trim()} data-testid="scan-url-button">
-                    {loading ? <RefreshCw className="spin" size={18} /> : <>Verificar agora <ArrowRight size={18} /></>}
-                  </button>
-                </div>
+                <>
+                  <div className="url-row">
+                    <Globe size={19} />
+                    <input value={url} onChange={e => setUrl(e.target.value)} placeholder="ex.: https://site-suspeito.com" data-testid="url-input" />
+                    <button disabled={loading || !url.trim()} data-testid="scan-url-button">
+                      {loading ? <RefreshCw className="spin" size={18} /> : <>Verificar agora <ArrowRight size={18} /></>}
+                    </button>
+                  </div>
+                  <label className="brand-field">
+                    <span>Qual marca o link diz representar? <small>opcional</small></span>
+                    <input value={claimedBrand} onChange={event => setClaimedBrand(event.target.value)} placeholder="ex.: Vivo, banco ou loja" data-testid="claimed-brand-input" />
+                    <small>Essa comparação acontece apenas neste aparelho e não altera a pontuação automática.</small>
+                  </label>
+                  <div className="privacy-notice" data-testid="url-privacy-notice"><Lock size={14} /> Ao verificar, o endereço é enviado à API e às bases externas configuradas. Não use links privados ou com códigos de acesso.</div>
+                </>
               ) : (
                 <>
                   <label className="dropzone">
@@ -488,11 +500,26 @@ export default function App() {
                 {result.summary}
               </p>
 
-              <div className="panel-note" data-testid="domain-explanation">
-                <strong>Domínio analisado: </strong>
-                <code>{result.technical_details?.hostname || (() => { try { return new URL(result.target).hostname || "Não identificado"; } catch { return "Não identificado"; } })()}</code>
-                <br />O domínio é o endereço do site; nomes parecidos com o de uma empresa não comprovam que ele seja oficial.
-              </div>
+              {domainEvidence && (
+                <div className="domain-card" data-testid="domain-explanation">
+                  <div className="domain-card-heading">
+                    <Globe size={18} />
+                    <div>
+                      <strong>Como ler este endereço</strong>
+                      <span>Estrutura do link, separada do resultado das bases de reputação</span>
+                    </div>
+                  </div>
+                  <dl className="domain-grid">
+                    <div><dt>Domínio base provável</dt><dd><code>{domainEvidence.baseDomain}</code></dd></div>
+                    <div><dt>Subdomínios</dt><dd><code>{domainEvidence.subdomains.length ? domainEvidence.subdomains.join(" · ") : "nenhum"}</code></dd></div>
+                    <div><dt>Caminho</dt><dd><code>{domainEvidence.path}</code></dd></div>
+                    <div><dt>Parâmetros depois de ?</dt><dd>{domainEvidence.hasQuery ? "sim (valores ocultos)" : "não"}</dd></div>
+                  </dl>
+                  {domainEvidence.brandNote && <p className={`brand-comparison ${domainEvidence.brandNote.includes("aparece em um subdomínio") ? "attention" : ""}`} data-testid="brand-comparison">{domainEvidence.brandNote}</p>}
+                  <p className="domain-disclaimer">O domínio base é uma estimativa baseada em sufixos conhecidos. Esta leitura não confirma quem controla o site, não abre a página e não inspeciona logs ou certificado.</p>
+                </div>
+              )}
+
               {(result.risk_factors || []).length > 0 && (
                 <div className="panel-note" data-testid="risk-explanation">
                   <strong>Sinais observados nesta análise:</strong>
