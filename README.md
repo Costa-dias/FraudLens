@@ -1,12 +1,14 @@
 # FraudLens — segurança antes do clique
 
-**Versão 1.3.1 · atualizado em 30/10/2026**
+**Versão 1.4.0 · atualizado em 05/11/2026**
 
 Evolução incremental da linha 1.x: cobertura e risco separados, resultado inconclusivo, sinais explicados, cancelamento e tratamento de indisponibilidade da API.
 
 [Histórico e critérios da versão](RELEASES.md).
 
 Verificador de URLs com sinais explicados, API FastAPI e interface React/TypeScript. Imagens e vídeos são usados apenas para extração local de QR Codes; não são enviados ao servidor e não passam por análise completa da mensagem.
+
+Na versão 1.4.0, a tela separa o domínio base provável, subdomínios, caminho e presença de parâmetros (sem revelar seus valores). Você pode informar a marca que a mensagem diz representar; essa comparação é feita no navegador e destaca quando o nome aparece apenas em um subdomínio. O campo não altera a pontuação nem é enviado à API.
 
 - [Aplicação](https://fraudlens-code.onrender.com/)
 - [API](https://fraudlens-i54g.onrender.com/)
@@ -22,6 +24,7 @@ Relatórios do VirusTotal com mais de sete dias ou sem data têm cobertura parci
 ## Privacidade e limites
 
 - Histórico no navegador, com opção de apagar; URLs são enviadas à API e às bases externas consultadas. Não use links com tokens ou dados sensíveis.
+- A comparação de marca é local. O domínio base é uma estimativa por sufixos conhecidos, não uma validação de propriedade ou legitimidade.
 - Chaves somente no servidor; logs omitem alvos e credenciais.
 - Limite por IP em memória, CORS restrito, timeouts e validação de URLs.
 - “Preparar relato” copia um texto para revisão; não envia denúncia a nenhum órgão e não garante anonimato após compartilhamento.
