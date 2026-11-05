@@ -389,26 +389,24 @@ export default function App() {
     <div className="app-shell">
       <Toaster position="top-right" toastOptions={{ style: { background: "#111a2e", color: "#e8edf7", border: "1px solid #243250" } }} />
       <header className="topbar">
-        <div className="topbar-inner">
-          <div className="brand">
-            <span className="brand-mark">
-              <ShieldCheck size={22} />
-            </span>
-            <span>
-              <b>FraudLens</b>
-              <small>segurança antes do clique</small>
-            </span>
-          </div>
-          <div className="privacy">
-            <Lock size={14} /> uso anônimo
-          </div>
+        <div className="brand">
+          <span className="brand-mark">
+            <ShieldCheck size={22} />
+          </span>
+          <span>
+            <b>FraudLens</b>
+            <small>segurança antes do clique</small>
+          </span>
+        </div>
+        <div className="privacy">
+          <Lock size={14} /> uso anônimo
         </div>
       </header>
 
       <main>
         <section className="hero">
           <div className="eyebrow">
-            <span className="pulse" /> verificação rápida e gratuita
+            <span className="pulse" /> análise rápida e gratuita
           </div>
           <h1>
             Suspeita de golpe?
@@ -416,7 +414,7 @@ export default function App() {
             <em>Confira antes de abrir.</em>
           </h1>
           <p className="lede">
-            Verifique uma URL ou extraia um QR Code de imagem ou vídeo no seu aparelho. Receba sinais explicados para decidir com mais segurança.
+            Analise links e QR Codes antes de abrir. Fotos e vídeos são processados no seu aparelho.
           </p>
 
           <div className="scanner-panel">
@@ -450,10 +448,10 @@ export default function App() {
                       <small>Comparação feita apenas neste aparelho; não altera a pontuação.</small>
                     </label>
                   </details>
-                  <div className="privacy-notice" data-testid="url-privacy-notice"><Lock size={14} /> Ao verificar, o endereço é enviado à API e às bases externas configuradas. Não use links privados ou com códigos de acesso.</div>
+                  <div className="privacy-notice" data-testid="url-privacy-notice"><Lock size={14} /> A URL é enviada à API e às bases externas para consulta. Evite links privados ou com tokens de acesso.</div>
                   <details className="test-lab" data-testid="test-lab">
-                    <summary>Testar o verificador</summary>
-                    <p>Use páginas oficiais e inofensivas de simulação. O FraudLens consulta as fontes; não abre os endereços nem baixa arquivos.</p>
+                    <summary>Testar o FraudLens</summary>
+                    <p>Use links oficiais de simulação. O FraudLens consulta a reputação, mas não abre os links nem baixa arquivos.</p>
                     <div className="test-links">
                       <button type="button" onClick={() => prepareTestUrl("https://testsafebrowsing.appspot.com/s/malware.html")}>Google · teste de malware</button>
                       <button type="button" onClick={() => prepareTestUrl("https://testsafebrowsing.appspot.com/s/phishing.html")}>Google · teste de phishing</button>
@@ -508,7 +506,7 @@ export default function App() {
             </form>
 
             <div className="panel-note">
-              <Lock size={13} /> Prints e vídeos são lidos só no seu aparelho (nada é enviado): procuramos um QR Code. Para links escritos na imagem, cole a URL na aba «Link / URL».
+              <Lock size={13} /> Fotos e vídeos são processados neste aparelho para localizar QR Codes. Nenhum arquivo é enviado; cole links escritos na imagem na aba «Link / URL».
             </div>
           </div>
         </section>
