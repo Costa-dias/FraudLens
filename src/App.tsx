@@ -127,7 +127,7 @@ function RadarBanner() {
       
       <div style={styles.content}>
         <div style={styles.iconBox}>
-          <AlertTriangle size={19} color="#ff3b30" />
+          <AlertTriangle size={19} color="#dc6d9e" />
         </div>
         
         <div style={styles.textArea}>
@@ -387,7 +387,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Toaster position="top-right" toastOptions={{ style: { background: "#111a2e", color: "#e8edf7", border: "1px solid #243250" } }} />
+      <Toaster position="top-right" toastOptions={{ style: { background: "var(--fl-surface)", color: "var(--fl-text)", border: "1px solid var(--fl-border)" } }} />
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark">
@@ -711,16 +711,16 @@ const styles = {
     zIndex: 1,
     width: "min(350px, calc(100vw - 32px))",
     borderRadius: "14px",
-    background: "#0c0d12",
-    border: "1px solid rgba(255, 59, 48, 0.4)",
-    boxShadow: "0 16px 48px rgba(0, 0, 0, 0.8), 0 0 25px rgba(255, 59, 48, 0.18)",
+    background: "#1b1424",
+    border: "1px solid rgba(220, 109, 158, 0.38)",
+    boxShadow: "0 16px 48px rgba(0, 0, 0, 0.55), 0 0 25px rgba(138, 77, 158, 0.18)",
     overflow: "hidden",
   },
   topBarStripe: {
     height: "4px",
     width: "100%",
-    background: "linear-gradient(90deg, #ff3b30, #ff453a, #ff6961)",
-    boxShadow: "0 0 10px #ff3b30",
+    background: "linear-gradient(90deg, #8a4d9e, #b75f9d, #dc6d9e)",
+    boxShadow: "0 0 10px #8a4d9e",
   },
   content: {
     display: "flex",
@@ -730,8 +730,8 @@ const styles = {
     position: "relative" as const,
   },
   iconBox: {
-    background: "rgba(255, 59, 48, 0.12)",
-    border: "1px solid rgba(255, 59, 48, 0.3)",
+    background: "rgba(220, 109, 158, 0.12)",
+    border: "1px solid rgba(220, 109, 158, 0.3)",
     padding: "8px",
     borderRadius: "10px",
     display: "flex",
@@ -754,8 +754,8 @@ const styles = {
     fontSize: "0.65rem",
     fontWeight: 800,
     letterSpacing: "0.1em",
-    color: "#ff453a",
-    background: "rgba(255, 69, 58, 0.15)",
+    color: "#dc6d9e",
+    background: "rgba(220, 109, 158, 0.15)",
     padding: "2px 6px",
     borderRadius: "4px",
   },
@@ -768,7 +768,7 @@ const styles = {
   },
   text: {
     fontSize: "0.83rem",
-    color: "#e8edf7",
+    color: "#f3edf6",
     margin: 0,
     lineHeight: "1.35",
   },
@@ -778,7 +778,7 @@ const styles = {
     gap: "5px",
     fontSize: "0.78rem",
     fontWeight: 600,
-    color: "#ff6961",
+    color: "#e889b1",
     textDecoration: "none",
     marginTop: "4px",
   },
