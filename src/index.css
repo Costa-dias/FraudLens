@@ -940,7 +940,7 @@
       margin: 0 auto;
       padding: 0 max(14px, env(safe-area-inset-right)) calc(22px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
       min-height: 100svh;
-      border: 1px solid rgba(76, 100, 145, 0.3);
+      border: 1px solid rgba(92, 122, 177, 0.42);
       border-radius: 20px;
       background:
         radial-gradient(900px 380px at 80% -15%, rgba(47, 107, 255, 0.1), transparent 62%),
