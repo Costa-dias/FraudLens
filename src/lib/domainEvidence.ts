@@ -8,6 +8,7 @@ const MULTI_LABEL_SUFFIXES = new Set([
 ]);
 
 export interface DomainEvidence {
+  scheme: string;
   hostname: string;
   baseDomain: string;
   subdomains: string[];
@@ -46,6 +47,7 @@ export function explainDomain(target: string, claimedBrand = ""): DomainEvidence
     }
 
     return {
+      scheme: parsed.protocol.replace(/:$/, ""),
       hostname,
       baseDomain,
       subdomains,
@@ -55,5 +57,14 @@ export function explainDomain(target: string, claimedBrand = ""): DomainEvidence
     };
   } catch {
     return null;
+  }
+}
+
+export function safeDisplayUrl(target: string): string {
+  try {
+    const parsed = new URL(target);
+    return `${parsed.origin}${parsed.pathname}${parsed.search ? "?parâmetros ocultos" : ""}`;
+  } catch {
+    return "Endereço omitido";
   }
 }
