@@ -1,12 +1,14 @@
 # FraudLens — segurança antes do clique
 
-**Versão 1.3.1 · atualizado em 30/10/2026**
+**Versão 1.4.0 · atualizado em 05/11/2026**
 
 Evolução incremental da linha 1.x: cobertura e risco separados, resultado inconclusivo, sinais explicados, cancelamento e tratamento de indisponibilidade da API.
 
 [Histórico e critérios da versão](RELEASES.md).
 
 Verificador de URLs com sinais explicados, API FastAPI e interface React/TypeScript. Imagens e vídeos são usados apenas para extração local de QR Codes; não são enviados ao servidor e não passam por análise completa da mensagem.
+
+Na versão 1.4.0, a tela separa visualmente o domínio base provável, subdomínios e caminho; valores de parâmetros são ocultados. Você pode informar a marca que a mensagem diz representar; essa comparação é feita no navegador, sem alterar a pontuação nem enviar o campo à API. O relatório também explica o resultado de cada fonte e inclui uma área opcional com URLs oficiais de simulação.
 
 - [Aplicação](https://fraudlens-code.onrender.com/)
 - [API](https://fraudlens-i54g.onrender.com/)
@@ -15,13 +17,14 @@ Verificador de URLs com sinais explicados, API FastAPI e interface React/TypeScr
 
 Analisa a estrutura do endereço e, quando configuradas, consulta Google Safe Browsing e o relatório existente do VirusTotal. Não navega no site de destino nem realiza uma inspeção própria do certificado TLS. HTTPS é apenas um dos sinais estruturais.
 
-A resposta separa `risk_score` (0–100, sinais heurísticos; não é uma probabilidade estatística) de `coverage` (complete/partial). `confidence_score` permanece como alias de risco para clientes antigos. Os estados são SAFE (baixo risco aparente), SUSPICIOUS (sinais suspeitos), DANGEROUS (alto risco) e INCONCLUSIVE (informação insuficiente sem sinais locais relevantes).
+A resposta separa `risk_score` (0–100, sinais heurísticos; não é uma probabilidade estatística) de `coverage` (complete/partial). `confidence_score` permanece como alias de risco para clientes antigos. `checks` distingue `detected`, `no_match`, `no_record`, `stale`, `detected_stale`, `unavailable` e `not_configured`. Os estados são SAFE (baixo risco aparente), SUSPICIOUS (sinais suspeitos), DANGEROUS (alto risco) e INCONCLUSIVE (informação insuficiente sem sinais locais relevantes).
 
 Relatórios do VirusTotal com mais de sete dias ou sem data têm cobertura parcial. A data externa e a data da consulta são exibidas. Uma classificação limpa não garante segurança. Palavras usuais como login e pix não somam risco por si só.
 
 ## Privacidade e limites
 
 - Histórico no navegador, com opção de apagar; URLs são enviadas à API e às bases externas consultadas. Não use links com tokens ou dados sensíveis.
+- A comparação de marca é local. O domínio base é uma estimativa por sufixos conhecidos, não uma validação de propriedade ou legitimidade.
 - Chaves somente no servidor; logs omitem alvos e credenciais.
 - Limite por IP em memória, CORS restrito, timeouts e validação de URLs.
 - “Preparar relato” copia um texto para revisão; não envia denúncia a nenhum órgão e não garante anonimato após compartilhamento.

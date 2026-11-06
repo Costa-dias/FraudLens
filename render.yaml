@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: fraudlens-preview-api-jv-20261105
+    runtime: python
+    plan: free
+    region: oregon
+    branch: feat/fraudlens-domain-explainer-1.4.0
+    rootDir: server
+    buildCommand: pip install -r ../requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    autoDeployTrigger: off
+    healthCheckPath: /
+    envVars:
+      - key: CORS_ORIGINS
+        value: https://fraudlens-preview-jv-20261105.onrender.com
+      - key: GOOGLE_SAFE_BROWSING_API_KEY
+        fromService:
+          type: web
+          name: fraudlens
+          envVarKey: GOOGLE_SAFE_BROWSING_API_KEY
+      - key: VIRUSTOTAL_API_KEY
+        fromService:
+          type: web
+          name: fraudlens
+          envVarKey: VIRUSTOTAL_API_KEY
+
+  - type: web
+    name: fraudlens-preview-jv-20261105
+    runtime: static
+    branch: feat/fraudlens-domain-explainer-1.4.0
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    autoDeployTrigger: off
+    envVars:
+      - key: VITE_API_URL
+        value: https://fraudlens-preview-api-jv-20261105.onrender.com

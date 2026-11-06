@@ -406,7 +406,7 @@ def calculate_verdict(score: int, google_hit: bool) -> tuple[Literal["SAFE", "SU
 # API Initialization & Routes
 # --------------------------------------------------------------------------
 
-app = FastAPI(title="FraudLens API", version="1.2.0")
+app = FastAPI(title="FraudLens API", version="1.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -494,12 +494,19 @@ async def scan_url(body: ScanRequest, request: Request):
 
     score = min(100, max(0, score))
     checks = {
-        "google": "ok" if google_res is not None else ("unavailable" if GOOGLE_KEY else "not_configured"),
-        "virustotal": ("not_found" if vt_res and vt_res.get("status") == "not_found" else "ok") if vt_res is not None else ("unavailable" if VT_KEY else "not_configured"),
+        "google": (
+            "detected" if google_hit else "no_match"
+        ) if google_res is not None else ("unavailable" if GOOGLE_KEY else "not_configured"),
+        "virustotal": (
+            "no_record" if vt_res.get("status") == "not_found"
+            else "detected_stale" if vt_malicious > 0 and not vt_fresh
+            else "detected" if vt_malicious > 0
+            else "stale" if not vt_fresh
+            else "no_match"
+        ) if vt_res is not None else ("unavailable" if VT_KEY else "not_configured"),
     }
-    if checks["virustotal"] == "ok" and not vt_fresh:
-        checks["virustotal"] = "stale"
-    coverage = "complete" if all(status == "ok" for status in checks.values()) else "partial"
+    complete_statuses = {"detected", "no_match"}
+    coverage = "complete" if all(status in complete_statuses for status in checks.values()) else "partial"
     verdict, summary = calculate_verdict(score, google_hit)
     if coverage == "partial":
         if verdict == "SAFE":
