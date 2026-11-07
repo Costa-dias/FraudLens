@@ -1,4 +1,3 @@
-// Version of the application, independent of dependency and data formats.
-export const APP_VERSION = "1.4.0";
-export const RELEASE_DATE = "05/11/2026";
-export const RELEASE_NOTES = "Domínio explicado, resultados por fonte e layout responsivo enquadrado.";
+export const APP_VERSION = "1.4.1";
+export const RELEASE_DATE = "07/11/2026";
+export const RELEASE_NOTES = "Tonalidades distintas por seção e faixa do Radar maior acima do cabeçalho.";
