@@ -1,6 +1,18 @@
 # FraudLens — segurança antes do clique
 
-**Versão 1.4.1 · atualizado em 07/11/2026**
+**Versão 1.5.1 · atualizado em 07/11/2026**
+
+## Recursos da versão atual
+
+Verificação de links com risco e cobertura das fontes separados; extração local de QR Codes; convite ao HUB após cada resultado e layout de tela inteira com superfícies de vidro.
+
+- O HUB é oferecido mesmo após baixo risco aparente; resultados de atenção, a partir de 50 pontos de risco, ou com cobertura limitada recebem destaque.
+- A pontuação de 0 a 100 não representa uma porcentagem de chance de golpe. O endereço analisado não é enviado ao HUB pelo convite.
+- Fotos e vídeos são processados no aparelho para localizar QR Codes. A URL consultada é enviada à API e às bases configuradas; evite endereços privados.
+
+### Minha participação
+
+Projeto autoral desenvolvido com apoio de inteligência artificial. Minha participação inclui definir necessidades e fluxos, revisar as implementações, testar o funcionamento e orientar melhorias. As evidências e limitações estão descritas no projeto e no portfólio.
 
 Evolução incremental da linha 1.x: cobertura e risco separados, resultado inconclusivo, sinais explicados, cancelamento e tratamento de indisponibilidade da API.
 
