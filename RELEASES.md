@@ -1,3 +1,7 @@
+## 1.5.1 — 07/11/2026
+
+- Layout de tela inteira com superfícies de vidro e conteúdo centralizado.
+
 ## 1.5.0 — 07/11/2026
 
 - Oferece o HUB após todos os resultados, inclusive baixo risco aparente.
