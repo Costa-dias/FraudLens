@@ -1,3 +1,10 @@
+## 1.5.0 — 07/11/2026
+
+- Oferece o HUB após todos os resultados, inclusive baixo risco aparente.
+- Destaca pontuações de risco a partir de 50, classificações de atenção e cobertura limitada.
+- Não confunde confiança com risco; não envia URL analisada ao HUB.
+- Conteúdo educativo não é um ranking de golpes em tempo real.
+
 ## 1.4.2 — 07/11/2026
 
 - Aumenta a diferença de luminosidade entre fundo, painel de análise, controles e cartões.

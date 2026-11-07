@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { requestScan } from "./lib/scanRequest";
 import { readQr } from "./lib/readQr";
+import { radarGuidance, RADAR_URL } from "./lib/radarGuidance";
 import { explainDomain, safeDisplayUrl } from "./lib/domainEvidence";
 import toast, { Toaster } from "react-hot-toast";
 import {
@@ -79,6 +80,14 @@ const VERDICT_META: Record<string, { label: string; cls: string; Icon: typeof Sh
   INCONCLUSIVE: { label: "INCONCLUSIVO", cls: "unknown", Icon: ShieldQuestion },
   UNKNOWN: { label: "SEM RESULTADO", cls: "unknown", Icon: ShieldQuestion },
 };
+
+export function RadarAfterScan({ result }: { result: ScanResult }) {
+  const guidance = radarGuidance({ verdict: result.verdict, risk_score: result.risk_score, coverage: result.coverage });
+  return <aside className={`radar-after-scan ${guidance.variant}`} aria-labelledby="radar-after-scan-title" data-testid="radar-after-scan">
+    <div><span className="radar-promo-eyebrow">CONTINUE NO HUB — RADAR DE GOLPES</span><h3 id="radar-after-scan-title">{guidance.title}</h3><p>{guidance.description}</p><small>Conteúdo educativo complementar. A pontuação de 0 a 100 não é uma porcentagem de chance de golpe.</small></div>
+    <div className="radar-after-scan-action"><a href={RADAR_URL} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">Conhecer golpes e como se proteger <ExternalLink size={17} aria-hidden="true" /></a><small>Abre outro site. O link analisado não é enviado ao Radar.</small></div>
+  </aside>;
+}
 
 function VerdictBadge({ value }: { value: string }) {
   const meta = VERDICT_META[value?.toUpperCase()] || VERDICT_META.UNKNOWN;
@@ -618,6 +627,7 @@ export default function App() {
                 </div>
               )}
             </div>
+            <RadarAfterScan result={result} />
           </section>
         )}
 
