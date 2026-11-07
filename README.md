@@ -1,6 +1,6 @@
 # FraudLens — segurança antes do clique
 
-**Versão 1.4.0 · atualizado em 05/11/2026**
+**Versão 1.4.1 · atualizado em 07/11/2026**
 
 Evolução incremental da linha 1.x: cobertura e risco separados, resultado inconclusivo, sinais explicados, cancelamento e tratamento de indisponibilidade da API.
 

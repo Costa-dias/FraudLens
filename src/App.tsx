@@ -114,49 +114,24 @@ function SourceStatuses({ checks }: { checks: Record<string, string> }) {
   );
 }
 
-// Componente do Banner Flutuante integrado com o tema do Radar de Golpes
+// Projeto complementar: visível antes do cabeçalho, sem cobrir o formulário.
 function RadarBanner() {
   const [visible, setVisible] = useState(true);
-
   if (!visible) return null;
-
   return (
-    <div style={styles.container}>
-      {/* Tarja vermelha superior idêntica ao estilo do site do Radar */}
-      <div style={styles.topBarStripe} />
-      
-      <div style={styles.content}>
-        <div style={styles.iconBox}>
-          <AlertTriangle size={19} color="#dc6d9e" />
-        </div>
-        
-        <div style={styles.textArea}>
-          <div style={styles.titleRow}>
-            <span style={styles.badge}>RADAR DE GOLPES</span>
-            <span style={styles.liveDot} />
-          </div>
-          <p style={styles.text}>
-            Descubra os golpes em alta no Brasil e proteja-se agora.
-          </p>
-          <a
-            href="https://radar-de-golpes-hub.xadoondias.workers.dev"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={styles.link}
-          >
-            Acessar painel completo <ExternalLink size={12} />
-          </a>
-        </div>
-
-        <button
-          onClick={() => setVisible(false)}
-          style={styles.closeBtn}
-          title="Fechar aviso"
-        >
-          <X size={15} />
-        </button>
+    <aside className="radar-promo" aria-labelledby="radar-promo-title">
+      <div className="radar-promo-icon" aria-hidden="true"><AlertTriangle size={30} /></div>
+      <div className="radar-promo-copy">
+        <span className="radar-promo-eyebrow">PROJETO COMPLEMENTAR · OUTRO SITE</span>
+        <h2 id="radar-promo-title">HUB — Radar de Golpes</h2>
+        <p>Aprenda a reconhecer golpes digitais e saiba como agir. Conteúdo educativo que complementa a análise do FraudLens.</p>
       </div>
-    </div>
+      <a className="radar-promo-link" href="https://radar-de-golpes-hub.xadoondias.workers.dev/" target="_blank" rel="noopener noreferrer">
+        <span>Abrir Radar de Golpes <ExternalLink size={18} aria-hidden="true" /></span>
+        <small>Abre outro site em nova aba</small>
+      </a>
+      <button type="button" className="radar-promo-close" onClick={() => setVisible(false)} aria-label="Fechar aviso do Radar"><X size={20} /></button>
+    </aside>
   );
 }
 
@@ -388,6 +363,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <Toaster position="top-right" toastOptions={{ style: { background: "var(--fl-surface)", color: "var(--fl-text)", border: "1px solid var(--fl-border)" } }} />
+      <RadarBanner />
       <header className="topbar">
         <div className="brand">
           <span className="brand-mark">
@@ -698,100 +674,8 @@ export default function App() {
         <ReleaseVersion />
       </footer>
 
-      {/* Alerta flutuante com o mesmo design system do Radar */}
-      <RadarBanner />
+
     </div>
   );
 }
-
-const styles = {
-  container: {
-    position: "relative" as const,
-    margin: "24px auto 0",
-    zIndex: 1,
-    width: "min(350px, calc(100vw - 32px))",
-    borderRadius: "14px",
-    background: "#1b1424",
-    border: "1px solid rgba(220, 109, 158, 0.38)",
-    boxShadow: "0 16px 48px rgba(0, 0, 0, 0.55), 0 0 25px rgba(138, 77, 158, 0.18)",
-    overflow: "hidden",
-  },
-  topBarStripe: {
-    height: "4px",
-    width: "100%",
-    background: "linear-gradient(90deg, #8a4d9e, #b75f9d, #dc6d9e)",
-    boxShadow: "0 0 10px #8a4d9e",
-  },
-  content: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "12px",
-    padding: "14px 16px 16px 16px",
-    position: "relative" as const,
-  },
-  iconBox: {
-    background: "rgba(220, 109, 158, 0.12)",
-    border: "1px solid rgba(220, 109, 158, 0.3)",
-    padding: "8px",
-    borderRadius: "10px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  textArea: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "4px",
-  },
-  titleRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-  },
-  badge: {
-    fontSize: "0.65rem",
-    fontWeight: 800,
-    letterSpacing: "0.1em",
-    color: "#dc6d9e",
-    background: "rgba(220, 109, 158, 0.15)",
-    padding: "2px 6px",
-    borderRadius: "4px",
-  },
-  liveDot: {
-    width: "6px",
-    height: "6px",
-    backgroundColor: "#30d158",
-    borderRadius: "50%",
-    boxShadow: "0 0 8px #30d158",
-  },
-  text: {
-    fontSize: "0.83rem",
-    color: "#f3edf6",
-    margin: 0,
-    lineHeight: "1.35",
-  },
-  link: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "5px",
-    fontSize: "0.78rem",
-    fontWeight: 600,
-    color: "#e889b1",
-    textDecoration: "none",
-    marginTop: "4px",
-  },
-  closeBtn: {
-    background: "transparent",
-    border: "none",
-    color: "#8e8e93",
-    cursor: "pointer",
-    padding: "2px",
-    borderRadius: "6px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-};
 

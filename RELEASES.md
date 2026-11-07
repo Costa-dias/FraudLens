@@ -1,3 +1,7 @@
+# Versão 1.4.1 — 07/11/2026
+
+O Radar de Golpes aparece em uma faixa maior acima do cabeçalho, com tom vinho/vermelho, chamada externa e aviso de nova aba. O aviso não cobre o formulário e pode ser fechado. Painel de análise, cartões e histórico ganharam tonalidades distintas. Sem mudanças na API, histórico local ou regras de análise.
+
 # Versão do produto
 
 **Versão 1.4.0 · atualizado em 05/11/2026**
