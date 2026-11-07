@@ -3,11 +3,11 @@
 @layer base {
   :root {
     --fl-bg: #100b17;
-    --fl-surface: #1b1424;
-    --fl-surface-2: #251a30;
-    --fl-border: #3a2a48;
+    --fl-surface: #252d3d;
+    --fl-surface-2: #303a4d;
+    --fl-border: #596174;
     --fl-text: #f3edf6;
-    --fl-muted: #aa9bb7;
+    --fl-muted: #bdc3d1;
     --fl-primary: #8a4d9e;
     --fl-primary-hover: #aa63b5;
     --fl-accent: #dc6d9e;
@@ -970,18 +970,18 @@
 }
 
 
-/* Tonalidades por área: base fria, análise em ameixa e destino externo em vinho. */
+/* Hierarquia visual: grafite, análise em ardósia e acentos roxos. */
 @layer components {
-  .app-shell { background: linear-gradient(160deg, #191526, #0e111c 75%); }
-  .topbar { background: rgba(13, 18, 31, .95); border-bottom-color: #41415a; }
-  .hero { margin-top: 20px; border-radius: 22px; background: linear-gradient(125deg, rgba(91, 39, 83, .24), transparent 70%); }
-  .scanner-panel { background: linear-gradient(135deg, #30273d, #242b40); border-color: #60506f; box-shadow: 0 20px 55px rgba(0, 0, 0, .25); }
-  .trust-strip > div { background: #202739; border-color: #41485d; }
-  .trust-strip > div:nth-child(2) { background: #2b2034; }
-  .trust-strip > div:nth-child(3) { background: #1c2b36; }
+  .app-shell { background: #11151e; }
+  .topbar { background: #0b0e16; border-bottom-color: #41415a; }
+  .hero { margin-top: 20px; border-radius: 22px; background: linear-gradient(120deg, #211c30, #151b28 85%); }
+  .scanner-panel { background: linear-gradient(135deg, #374459, #293548); border-color: #8794ac; box-shadow: 0 20px 55px rgba(0, 0, 0, .25); }
+  .trust-strip > div { background: #203b3d; border-color: #4c7777; }
+  .trust-strip > div:nth-child(2) { background: #3d2b43; border-color: #805f8b; }
+  .trust-strip > div:nth-child(3) { background: #263b54; border-color: #54799e; }
   .recent { background: #151c2b; border: 1px solid #374255; border-radius: 18px; padding: 22px; }
-  .result-card { background: #232a3b; border-color: #59627b; }
-  .lede, .trust-strip span { color: #c4b9d0; }
+  .result-card { background: #30384c; border-color: #8491aa; }
+  .lede, .trust-strip span { color: #d5d9e3; }
 
   .radar-promo {
     position: relative;
@@ -1021,4 +1021,16 @@
     .radar-promo p { font-size: .88rem; }
     .recent { padding: 16px; }
   }
+}
+
+@layer components {
+  .mode-tabs { background: #161c29; border: 1px solid #59677f; }
+  .mode-tabs button { color: #ccd3df; }
+  .mode-tabs button.active { background: #714284; box-shadow: inset 0 0 0 1px #c09cce; color: #fff; }
+  .url-row, .brand-field input { background: #101722; border-color: #91a0b8; }
+  .brand-field-disclosure, .test-lab { background: #202a3b; border-color: #687891; }
+  .dropzone { background: #172333; border-color: #91a0b8; }
+  .scanner-panel .privacy-notice, .scanner-panel .panel-note { color: #d0d7e3; }
+  .trust-strip strong { color: #fff; }
+  footer { background: #0b0e16; padding: 22px 16px 16px; border-radius: 14px; color: #c1c9d8; }
 }
