@@ -38,11 +38,11 @@ idna==3.20
     #   httpx
 opentelemetry-api==1.45.2
     # via fastapi
-pydantic==2.14.2
+pydantic==2.14.3
     # via
     #   -r requirements.in
     #   fastapi
-pydantic-core==2.50.2
+pydantic-core==2.50.4
     # via pydantic
 python-dotenv==1.2.4
     # via uvicorn
